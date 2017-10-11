@@ -114,16 +114,6 @@
  *         .setFirefoxOptions(options)
  *         .build();
  *
- * __Testing Older Versions of Firefox__
- *
- * To test versions of Firefox prior to Firefox 47, you must disable the use of
- * the geckodriver using the {@link Options} class.
- *
- *     let options = new firefox.Options().useGeckoDriver(false);
- *
- * Alternatively, you may disable the geckodriver at runtime by setting the
- * environment variable `SELENIUM_MARIONETTE=false`.
- *
  * [geckodriver release]: https://github.com/mozilla/geckodriver/releases/
  * [PATH]: http://en.wikipedia.org/wiki/PATH_%28variable%29
  */
@@ -132,49 +122,18 @@
 
 const url = require('url');
 
-const {Binary, Channel} = require('./binary'),
+const {Channel} = require('./binary'),
     Profile = require('./profile').Profile,
-    decodeProfile = require('./profile').decode,
     http = require('../http'),
     httpUtil = require('../http/util'),
     io = require('../io'),
     capabilities = require('../lib/capabilities'),
     command = require('../lib/command'),
     logging = require('../lib/logging'),
-    promise = require('../lib/promise'),
     webdriver = require('../lib/webdriver'),
     net = require('../net'),
     portprober = require('../net/portprober'),
     remote = require('../remote');
-
-
-/**
- * Firefox-specific capability keys. Users should use the {@linkplain Options}
- * class instead of referencing these keys directly. _These keys are considered
- * implementation details and may be removed or changed at any time._
- *
- * @enum {string}
- */
-const Capability = {
-  /**
-   * Defines the Firefox binary to use. May be set to either a
-   * {@linkplain Binary} instance, or a string path to the Firefox executable.
-   */
-  BINARY: 'firefox_binary',
-
-  /**
-   * Specifies whether to use Mozilla's Marionette, or the legacy FirefoxDriver
-   * from the Selenium project. Defaults to false.
-   */
-  MARIONETTE: 'marionette',
-
-  /**
-   * Defines the Firefox profile to use. May be set to either a
-   * {@linkplain Profile} instance, or to a base-64 encoded zip of a profile
-   * directory.
-   */
-  PROFILE: 'firefox_profile'
-};
 
 
 /**
@@ -185,17 +144,58 @@ class Options {
     /** @private {Profile} */
     this.profile_ = null;
 
-    /** @private {Binary} */
+    /** @private {(Channel|string|null)} */
     this.binary_ = null;
+
+    /** @private {!Array<string>} */
+    this.args_ = [];
 
     /** @private {logging.Preferences} */
     this.logPrefs_ = null;
 
     /** @private {?capabilities.ProxyConfig} */
     this.proxy_ = null;
+  }
 
-    /** @private {boolean} */
-    this.marionette_ = true;
+  /**
+   * Specify additional command line arguments that should be used when starting
+   * the Firefox browser.
+   *
+   * @param {...(string|!Array<string>)} args The arguments to include.
+   * @return {!Options} A self reference.
+   */
+  addArguments(...args) {
+    this.args_ = this.args_.concat(...args);
+    return this;
+  }
+
+  /**
+   * Configures the geckodriver to start Firefox in headless mode.
+   *
+   * @return {!Options} A self reference.
+   */
+  headless() {
+    return this.addArguments('-headless');
+  }
+
+  /**
+   * Sets the initial window size when running in
+   * {@linkplain #headless headless} mode.
+   *
+   * @param {{width: number, height: number}} size The desired window size.
+   * @return {!Options} A self reference.
+   * @throws {TypeError} if width or height is unspecified, not a number, or
+   *     less than or equal to 0.
+   */
+  windowSize({width, height}) {
+    function checkArg(arg) {
+      if (typeof arg !== 'number' || arg <= 0) {
+        throw TypeError('Arguments must be {width, height} with numbers > 0');
+      }
+    }
+    checkArg(width);
+    checkArg(height);
+    return this.addArguments(`--window-size=${width},${height}`);
   }
 
   /**
@@ -216,25 +216,18 @@ class Options {
 
   /**
    * Sets the binary to use. The binary may be specified as the path to a
-   * Firefox executable, a specific {@link Channel}, or as a {@link Binary}
-   * object.
+   * Firefox executable or a desired release {@link Channel}.
    *
-   * @param {(string|!Binary|!Channel)} binary The binary to use.
+   * @param {(string|!Channel)} binary The binary to use.
    * @return {!Options} A self reference.
    * @throws {TypeError} If `binary` is an invalid type.
    */
   setBinary(binary) {
-    if (typeof binary === 'string' || binary instanceof Channel) {
-      binary = new Binary(binary);
+    if (binary instanceof Channel || typeof binary === 'string') {
+      this.binary_ = binary;
+      return this;
     }
-
-    if (!(binary instanceof Binary)) {
-      throw TypeError(
-          'binary must be a string path, Channel, or Binary object');
-    }
-
-    this.binary_ = binary;
-    return this;
+    throw TypeError('binary must be a string path or Channel object');
   }
 
   /**
@@ -259,37 +252,53 @@ class Options {
   }
 
   /**
-   * Sets whether to use Mozilla's geckodriver to drive the browser. This option
-   * is enabled by default and required for Firefox 47+.
-   *
-   * @param {boolean} enable Whether to enable the geckodriver.
-   * @see https://github.com/mozilla/geckodriver
-   */
-  useGeckoDriver(enable) {
-    this.marionette_ = enable;
-    return this;
-  }
-
-  /**
    * Converts these options to a {@link capabilities.Capabilities} instance.
    *
    * @return {!capabilities.Capabilities} A new capabilities object.
    */
   toCapabilities() {
-    var caps = capabilities.Capabilities.firefox();
+    let caps = capabilities.Capabilities.firefox();
+    let firefoxOptions = {};
+    caps.set('moz:firefoxOptions', firefoxOptions);
+
     if (this.logPrefs_) {
       caps.set(capabilities.Capability.LOGGING_PREFS, this.logPrefs_);
     }
+
     if (this.proxy_) {
       caps.set(capabilities.Capability.PROXY, this.proxy_);
     }
+
+    if (this.args_.length) {
+      firefoxOptions['args'] = this.args_.concat();
+    }
+
     if (this.binary_) {
-      caps.set(Capability.BINARY, this.binary_);
+      if (this.binary_ instanceof Channel) {
+        firefoxOptions['binary'] = this.binary_.locate();
+
+      } else if (typeof this.binary_ === 'string') {
+        firefoxOptions['binary'] = this.binary_;
+      }
     }
+
     if (this.profile_) {
-      caps.set(Capability.PROFILE, this.profile_);
+      // If the user specified a template directory or any extensions to
+      // install, we need to encode the profile as a base64 string (which
+      // requires writing it to disk first). Otherwise, if the user just
+      // specified some custom preferences, we can send those directly.
+      let profile = this.profile_;
+      if (profile.getTemplateDir() || profile.getExtensions().length) {
+        firefoxOptions['profile'] = profile.encode();
+
+      } else {
+        let prefs = profile.getPreferences();
+        if (Object.keys(prefs).length) {
+          firefoxOptions['prefs'] = prefs;
+        }
+      }
     }
-    caps.set(Capability.MARIONETTE, this.marionette_);
+
     return caps;
   }
 }
@@ -325,30 +334,10 @@ function findGeckoDriver() {
     throw Error(
       'The ' + GECKO_DRIVER_EXE + ' executable could not be found on the current ' +
       'PATH. Please download the latest version from ' +
-      'https://github.com/mozilla/geckodriver/releases/' +
-      'WebDriver and ensure it can be found on your PATH.');
+      'https://github.com/mozilla/geckodriver/releases/ ' +
+      'and ensure it can be found on your PATH.');
   }
   return exe;
-}
-
-
-/**
- * @param {(Profile|string)} profile The profile to prepare.
- * @param {number} port The port the FirefoxDriver should listen on.
- * @return {!Promise<string>} a promise for the path to the profile directory.
- */
-function prepareProfile(profile, port) {
-  if (typeof profile === 'string') {
-    return decodeProfile(/** @type {string} */(profile)).then(dir => {
-      profile = new Profile(dir);
-      profile.setPreference('webdriver_firefox_port', port);
-      return profile.writeToDisk();
-    });
-  }
-
-  profile = profile || new Profile;
-  profile.setPreference('webdriver_firefox_port', port);
-  return profile.writeToDisk();
 }
 
 
@@ -448,152 +437,6 @@ class ServiceBuilder extends remote.DriverService.Builder {
   enableVerboseLogging(opt_trace) {
     return this.addArguments(opt_trace ? '-vv' : '-v');
   }
-
-  /**
-   * Sets the path to the executable Firefox binary that the geckodriver should
-   * use. If this method is not called, this builder will attempt to locate
-   * Firefox in the default installation location for the current platform.
-   *
-   * @param {(string|!Binary)} binary Path to the executable Firefox binary to use.
-   * @return {!ServiceBuilder} A self reference.
-   * @see Binary#locate()
-   */
-  setFirefoxBinary(binary) {
-    let exe = typeof binary === 'string'
-        ? Promise.resolve(binary) : binary.locate();
-    return this.addArguments('-b', exe);
-  }
-}
-
-
-/**
- * @typedef {{executor: !command.Executor,
- *            capabilities: (!capabilities.Capabilities|
- *                           {desired: (capabilities.Capabilities|undefined),
- *                            required: (capabilities.Capabilities|undefined)}),
- *            onQuit: function(this: void): ?}}
- */
-var DriverSpec;
-
-
-/**
- * @param {(http.Executor|remote.DriverService|undefined)} executor
- * @param {!capabilities.Capabilities} caps
- * @param {Profile} profile
- * @param {Binary} binary
- * @return {DriverSpec}
- */
-function createGeckoDriver(executor, caps, profile, binary) {
-  let firefoxOptions = {};
-  caps.set('moz:firefoxOptions', firefoxOptions);
-
-  if (binary) {
-    if (binary.getExe()) {
-      firefoxOptions['binary'] = binary.getExe();
-    }
-
-    let args = binary.getArguments();
-    if (args.length) {
-      firefoxOptions['args'] = args;
-    }
-  }
-
-  if (profile) {
-    // If the user specified a template directory or any extensions to install,
-    // we need to encode the profile as a base64 string (which requires writing
-    // it to disk first). Otherwise, if the user just specified some custom
-    // preferences, we can send those directly.
-    if (profile.getTemplateDir() || profile.getExtensions().length) {
-      firefoxOptions['profile'] = profile.encode();
-
-    } else {
-      let prefs = profile.getPreferences();
-      if (Object.keys(prefs).length) {
-        firefoxOptions['prefs'] = prefs;
-      }
-    }
-  }
-
-  let sessionCaps = caps;
-  if (caps.has(capabilities.Capability.PROXY)) {
-    let proxy = normalizeProxyConfiguration(
-        caps.get(capabilities.Capability.PROXY));
-
-    // Marionette requires proxy settings to be specified as required
-    // capabilities. See mozilla/geckodriver#97
-    let required = new capabilities.Capabilities()
-        .set(capabilities.Capability.PROXY, proxy);
-
-    caps.delete(capabilities.Capability.PROXY);
-    sessionCaps = {required, desired: caps};
-  }
-
-  /** @type {!command.Executor} */
-  let cmdExecutor;
-  let onQuit = function() {};
-
-  if (executor instanceof http.Executor) {
-    configureExecutor(executor);
-    cmdExecutor = executor;
-  } else if (executor instanceof remote.DriverService) {
-    cmdExecutor = createExecutor(executor.start());
-    onQuit = () => executor.kill();
-  } else {
-    let builder = new ServiceBuilder();
-    if (binary) {
-      builder.setFirefoxBinary(binary);
-    }
-    let service = builder.build();
-    cmdExecutor = createExecutor(service.start());
-    onQuit = () => service.kill();
-  }
-
-  return {
-    executor: cmdExecutor,
-    capabilities: sessionCaps,
-    onQuit
-  };
-}
-
-
-/**
- * @param {!capabilities.Capabilities} caps
- * @param {Profile} profile
- * @param {!Binary} binary
- * @return {DriverSpec}
- */
-function createLegacyDriver(caps, profile, binary, flow) {
-  profile = profile || new Profile;
-
-  let freePort = portprober.findFreePort();
-  let preparedProfile =
-      freePort.then(port => prepareProfile(profile, port));
-  let command = preparedProfile.then(dir => binary.launch(dir));
-
-  let serverUrl = command.then(() => freePort)
-      .then(function(/** number */port) {
-        let serverUrl = url.format({
-          protocol: 'http',
-          hostname: net.getLoopbackAddress(),
-          port: port + '',
-          pathname: '/hub'
-        });
-        let ready = httpUtil.waitForServer(serverUrl, 45 * 1000);
-        return ready.then(() => serverUrl);
-      });
-
-  return {
-    executor: createExecutor(serverUrl),
-    capabilities: caps,
-    onQuit: function() {
-      return command.then(command => {
-        command.kill();
-        return preparedProfile.then(io.rmDir)
-            .then(() => command.result(),
-                  () => command.result());
-      });
-    }
-  };
 }
 
 
@@ -620,13 +463,11 @@ class Driver extends webdriver.WebDriver {
    *
    *   _This parameter may only be used with Mozilla's GeckoDriver._
    *
-   * @param {promise.ControlFlow=} opt_flow The flow to
-   *     schedule commands through. Defaults to the active flow object.
    * @throws {Error} If a custom command executor is provided and the driver is
    *     configured to use the legacy FirefoxDriver from the Selenium project.
    * @return {!Driver} A new driver instance.
    */
-  static createSession(opt_config, opt_executor, opt_flow) {
+  static createSession(opt_config, opt_executor) {
     let caps;
     if (opt_config instanceof Options) {
       caps = opt_config.toCapabilities();
@@ -634,38 +475,28 @@ class Driver extends webdriver.WebDriver {
       caps = new capabilities.Capabilities(opt_config);
     }
 
-    let binary = caps.get(Capability.BINARY) || new Binary();
-    caps.delete(Capability.BINARY);
-    if (typeof binary === 'string') {
-      binary = new Binary(binary);
+    if (caps.has(capabilities.Capability.PROXY)) {
+      let proxy =
+          normalizeProxyConfiguration(caps.get(capabilities.Capability.PROXY));
+      caps.set(capabilities.Capability.PROXY, proxy);
     }
 
-    let profile;
-    if (caps.has(Capability.PROFILE)) {
-      profile = caps.get(Capability.PROFILE);
-      caps.delete(Capability.PROFILE);
-    }
+    let executor;
+    let onQuit;
 
-    // Users must now explicitly disable marionette to use the legacy
-    // FirefoxDriver.
-    let noMarionette =
-        caps.get(Capability.MARIONETTE) === false
-            || /^0|false$/i.test(process.env['SELENIUM_MARIONETTE']);
-    let useMarionette = !noMarionette;
-
-    let spec;
-    if (useMarionette) {
-      spec = createGeckoDriver(opt_executor, caps, profile, binary);
+    if (opt_executor instanceof http.Executor) {
+      executor = opt_executor;
+      configureExecutor(executor);
+    } else if (opt_executor instanceof remote.DriverService) {
+      executor = createExecutor(opt_executor.start());
+      onQuit = () => opt_executor.kill();
     } else {
-      if (opt_executor) {
-        throw Error('You may not use a custom command executor with the legacy'
-            + ' FirefoxDriver');
-      }
-      spec = createLegacyDriver(caps, profile, binary, opt_flow);
+      let service = new ServiceBuilder().build();
+      executor = createExecutor(service.start());
+      onQuit = () => service.kill();
     }
 
-    return /** @type {!Driver} */(webdriver.WebDriver.createSession(
-        spec.executor, spec.capabilities, opt_flow, this, spec.onQuit));
+    return /** @type {!Driver} */(super.createSession(executor, caps, onQuit));
   }
 
   /**
@@ -679,12 +510,10 @@ class Driver extends webdriver.WebDriver {
   /**
    * Get the context that is currently in effect.
    *
-   * @return {!promise.Thenable<Context>} Current context.
+   * @return {!Promise<Context>} Current context.
    */
   getContext() {
-    return this.schedule(
-        new command.Command(ExtensionCommand.GET_CONTEXT),
-        'get WebDriver.context');
+    return this.execute(new command.Command(ExtensionCommand.GET_CONTEXT));
   }
 
   /**
@@ -699,13 +528,12 @@ class Driver extends webdriver.WebDriver {
    *
    * Use your powers wisely.
    *
-   * @param {!promise.Thenable<void>} ctx The context to switch to.
+   * @param {!Promise<void>} ctx The context to switch to.
    */
   setContext(ctx) {
-    return this.schedule(
+    return this.execute(
         new command.Command(ExtensionCommand.SET_CONTEXT)
-            .setParameter("context", ctx),
-        'set WebDriver.context');
+            .setParameter("context", ctx));
   }
 }
 
@@ -713,7 +541,6 @@ class Driver extends webdriver.WebDriver {
 // PUBLIC API
 
 
-exports.Binary = Binary;
 exports.Channel = Channel;
 exports.Context = Context;
 exports.Driver = Driver;

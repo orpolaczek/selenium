@@ -27,6 +27,7 @@ import org.openqa.grid.internal.utils.configuration.GridHubConfiguration;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.InvalidParameterException;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
@@ -70,8 +71,11 @@ public class TestSlot {
    * @param path the protocol path this test slot uses
    * @param capabilities capabilities of this test slot
    */
-  public TestSlot(RemoteProxy proxy, SeleniumProtocol protocol, String path,
-                  Map<String, Object> capabilities) {
+  public TestSlot(
+      RemoteProxy proxy,
+      SeleniumProtocol protocol,
+      String path,
+      Map<String, Object> capabilities) {
     this.proxy = proxy;
     this.protocol = protocol;
     this.path = path;
@@ -81,7 +85,7 @@ public class TestSlot {
       throw new InvalidParameterException("the proxy needs to have a valid "
           + "capabilityMatcher to support have some test slots attached to it");
     }
-    matcher = proxy.getCapabilityHelper();
+    this.matcher = proxy.getCapabilityHelper();
     this.capabilities = capabilities;
   }
 
@@ -128,7 +132,7 @@ public class TestSlot {
       }
       if (matches(desiredCapabilities)) {
         log.info("Trying to create a new session on test slot " + this.capabilities);
-        TestSession session = new TestSession(this, desiredCapabilities, new DefaultTimeSource());
+        TestSession session = new TestSession(this, desiredCapabilities, Clock.systemUTC());
         currentSession = session;
         lastSessionStart = System.currentTimeMillis();
         return session;

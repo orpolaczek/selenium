@@ -1,13 +1,15 @@
+# BUILD FILE SYNTAX: SKYLARK
 java_library(name = 'annotations',
   srcs = [
     'Driver.java',
     'Ignore.java',
-    'JavascriptEnabled.java',
+    'IgnoreList.java',
     'NativeEventsRequired.java',
     'NeedsLocalEnvironment.java',
     'NeedsFreshDriver.java',
     'NoDriverAfterTest.java',
     'NotYetImplemented.java',
+    'NotYetImplementedList.java',
     'SwitchToTopAfterTest.java',
   ],
   deps = [

@@ -25,7 +25,6 @@ import pytest
 from selenium.common.exceptions import (
     NoSuchElementException,
     NoSuchFrameException,
-    TimeoutException,
     WebDriverException)
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -37,6 +36,12 @@ from selenium.webdriver.support import expected_conditions as EC
 # Tests that WebDriver doesn't do anything fishy when it navigates to a page with frames.
 #
 # ----------------------------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def restore_default_context(driver):
+    yield
+    driver.switch_to.default_content()
 
 
 def testShouldAlwaysFocusOnTheTopMostFrameAfterANavigationEvent(driver, pages):
@@ -229,7 +234,8 @@ def testShouldContinueToReferToTheSameFrameOnceItHasBeenSelected(driver, pages):
     WebDriverWait(driver, 3).until(EC.text_to_be_present_in_element((By.XPATH, '//p'), 'Success!'))
 
 
-@pytest.mark.xfail_marionette(raises=TimeoutException)
+@pytest.mark.xfail_marionette(raises=WebDriverException,
+                              reason='https://github.com/mozilla/geckodriver/issues/610')
 def testShouldFocusOnTheReplacementWhenAFrameFollowsALinkToA_TopTargetedPage(driver, pages):
     pages.load("frameset.html")
     driver.switch_to.frame(0)
@@ -373,8 +379,9 @@ def testShouldBeAbleToSwitchToTheTopIfTheFrameIsDeletedFromUnderUsWithWebelement
 
 
 @pytest.mark.xfail_chrome(raises=NoSuchElementException)
-@pytest.mark.xfail_marionette(raises=WebDriverException)
 @pytest.mark.xfail_phantomjs(raises=BadStatusLine)
+@pytest.mark.xfail_marionette(raises=WebDriverException,
+                              reason='https://github.com/mozilla/geckodriver/issues/614')
 def testShouldNotBeAbleToDoAnythingTheFrameIsDeletedFromUnderUs(driver, pages):
     pages.load("frame_switching_tests/deletingFrame.html")
     driver.switch_to.frame(driver.find_element_by_id("iframe1"))

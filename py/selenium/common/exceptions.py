@@ -164,6 +164,14 @@ class ElementNotVisibleException(InvalidElementStateException):
     pass
 
 
+class ElementNotInteractableException(InvalidElementStateException):
+    """
+    Thrown when an element is present in the DOM but interactions
+    with that element will hit another element do to paint order
+    """
+    pass
+
+
 class ElementNotSelectableException(InvalidElementStateException):
     """
     Thrown when trying to select an unselectable element.
@@ -238,5 +246,12 @@ class ImeNotAvailableException(WebDriverException):
 class ImeActivationFailedException(WebDriverException):
     """
     Thrown when activating an IME engine has failed.
+    """
+    pass
+
+
+class InvalidArgumentException(WebDriverException):
+    """
+    The arguments passed to a command are either invalid or malformed.
     """
     pass

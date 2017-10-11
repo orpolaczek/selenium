@@ -65,7 +65,6 @@ namespace OpenQA.Selenium
         [IgnoreBrowser(Browser.IPhone)]
         [IgnoreBrowser(Browser.Opera)]
         [IgnoreBrowser(Browser.PhantomJS)]
-        [IgnoreBrowser(Browser.Safari)]
         public void ShouldNotBeAbleToSubmitAFormThatDoesNotExist()
         {
             driver.Url = formsPage;
@@ -137,7 +136,6 @@ namespace OpenQA.Selenium
         [Test]
         [IgnoreBrowser(Browser.Android, "Does not yet support file uploads")]
         [IgnoreBrowser(Browser.IPhone, "Does not yet support file uploads")]
-        [IgnoreBrowser(Browser.Safari, "Does not yet support file uploads")]
         [IgnoreBrowser(Browser.WindowsPhone, "Does not yet support file uploads")]
         public void ShouldBeAbleToAlterTheContentsOfAFileUploadInputElement()
         {
@@ -161,7 +159,6 @@ namespace OpenQA.Selenium
         [Test]
         [IgnoreBrowser(Browser.Android, "Does not yet support file uploads")]
         [IgnoreBrowser(Browser.IPhone, "Does not yet support file uploads")]
-        [IgnoreBrowser(Browser.Safari, "Does not yet support file uploads")]
         [IgnoreBrowser(Browser.WindowsPhone, "Does not yet support file uploads")]
         public void ShouldBeAbleToSendKeysToAFileUploadInputElementInAnXhtmlDocument()
         {
@@ -192,7 +189,6 @@ namespace OpenQA.Selenium
         [Test]
         [IgnoreBrowser(Browser.Android, "Does not yet support file uploads")]
         [IgnoreBrowser(Browser.IPhone, "Does not yet support file uploads")]
-        [IgnoreBrowser(Browser.Safari, "Does not yet support file uploads")]
         [IgnoreBrowser(Browser.WindowsPhone, "Does not yet support file uploads")]
         public void ShouldBeAbleToUploadTheSameFileTwice()
         {
@@ -202,19 +198,16 @@ namespace OpenQA.Selenium
             inputFileWriter.WriteLine("Hello world");
             inputFileWriter.Close();
 
-            driver.Url = formsPage;
-            IWebElement uploadElement = driver.FindElement(By.Id("upload"));
-            Assert.IsTrue(string.IsNullOrEmpty(uploadElement.GetAttribute("value")));
+            for (int i = 0; i < 2; ++i)
+            {
+                driver.Url = formsPage;
+                IWebElement uploadElement = driver.FindElement(By.Id("upload"));
+                Assert.IsTrue(string.IsNullOrEmpty(uploadElement.GetAttribute("value")));
 
-            uploadElement.SendKeys(inputFile.FullName);
-            uploadElement.Submit();
+                uploadElement.SendKeys(inputFile.FullName);
+                uploadElement.Submit();
+            }
 
-            driver.Url = formsPage;
-            uploadElement = driver.FindElement(By.Id("upload"));
-            Assert.IsTrue(string.IsNullOrEmpty(uploadElement.GetAttribute("value")));
-
-            uploadElement.SendKeys(inputFile.FullName);
-            uploadElement.Submit();
             // If we get this far, then we're all good.
         }
 
@@ -306,6 +299,7 @@ namespace OpenQA.Selenium
         [IgnoreBrowser(Browser.PhantomJS, "Untested")]
         [IgnoreBrowser(Browser.Safari, "Untested")]
         [IgnoreBrowser(Browser.WindowsPhone, "Does not yet support alert handling")]
+        [IgnoreBrowser(Browser.Firefox, "Dismissing alert causes entire window to close.")]
         public void HandleFormWithJavascriptAction()
         {
             string url = EnvironmentManager.Instance.UrlBuilder.WhereIs("form_handling_js_submit.html");
@@ -322,7 +316,6 @@ namespace OpenQA.Selenium
         [Test]
         [IgnoreBrowser(Browser.Android, "Untested")]
         [IgnoreBrowser(Browser.IPhone, "Untested")]
-        [IgnoreBrowser(Browser.Safari, "Untested")]
         public void CanClickOnASubmitButton()
         {
             CheckSubmitButton("internal_explicit_submit");
@@ -331,7 +324,6 @@ namespace OpenQA.Selenium
         [Test]
         [IgnoreBrowser(Browser.Android, "Untested")]
         [IgnoreBrowser(Browser.IPhone, "Untested")]
-        [IgnoreBrowser(Browser.Safari, "Untested")]
         public void CanClickOnAnImplicitSubmitButton()
         {
             CheckSubmitButton("internal_implicit_submit");
@@ -340,7 +332,6 @@ namespace OpenQA.Selenium
         [Test]
         [IgnoreBrowser(Browser.Android, "Untested")]
         [IgnoreBrowser(Browser.IPhone, "Untested")]
-        [IgnoreBrowser(Browser.Safari, "Untested")]
         [IgnoreBrowser(Browser.HtmlUnit, "Fails on HtmlUnit")]
         [IgnoreBrowser(Browser.IE, "Fails on IE")]
         public void CanClickOnAnExternalSubmitButton()
@@ -351,7 +342,6 @@ namespace OpenQA.Selenium
         [Test]
         [IgnoreBrowser(Browser.Android, "Untested")]
         [IgnoreBrowser(Browser.IPhone, "Untested")]
-        [IgnoreBrowser(Browser.Safari, "Untested")]
         [IgnoreBrowser(Browser.HtmlUnit, "Fails on HtmlUnit")]
         [IgnoreBrowser(Browser.IE, "Fails on IE")]
         public void CanClickOnAnExternalImplicitSubmitButton()

@@ -8,6 +8,8 @@ class RubyMappings
     fun.add_mapping "ruby_test", RubyTest.new
     fun.add_mapping "ruby_test", AddTestDependencies.new
 
+    fun.add_mapping "ruby_lint", RubyLinter.new
+
     fun.add_mapping "rubydocs", RubyDocs.new
     fun.add_mapping "rubygem",  RubyGem.new
   end
@@ -101,18 +103,28 @@ class RubyMappings
           ENV['WD_SPEC_DRIVER'] = args[:name].tr('-', '_')
         end
 
-        ENV['CI_REPORTS']     = "build/test_logs"
-
         ruby :include => args[:include],
              :require => args[:require],
              :command => args[:command],
-             :args    => %w[--format CI::Reporter::RSpec --format doc --color] + (!!ENV['example'] ? ['--example', ENV['example']] : []),
+             :args    => %w[--format doc --color] + (!!ENV['example'] ? ['--example', ENV['example']] : []),
              :debug   => !!ENV['log'],
              :files   => args[:srcs],
              :gemfile => "build/rb/Gemfile"
       end
     end
   end
+
+  class RubyLinter < Tasks
+    def handle(_fun, dir, args)
+      desc 'Run rubocop'
+      task task_name(dir, "#{args[:name]}") => %W[//#{dir}:bundle] do
+        Dir.chdir('rb') do
+          ruby :command => 'rubocop',
+               :gemfile => 'Gemfile'
+        end
+      end
+    end
+  end # RubyLinter
 
   class RubyDocs < Tasks
     def handle(_fun, dir, args)

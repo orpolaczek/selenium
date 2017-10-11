@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -50,6 +51,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * used to stop the server.
  */
 public class DriverService {
+
   /**
    * The base URL for the managed server.
    */
@@ -85,9 +87,14 @@ public class DriverService {
      ImmutableList<String> args,
      ImmutableMap<String, String> environment) throws IOException {
    this.executable = executable.getCanonicalPath();
-   url = new URL(String.format("http://localhost:%d", port));
    this.args = args;
    this.environment = environment;
+
+   this.url = getUrl(port);
+ }
+
+ protected URL getUrl(int port) throws IOException {
+   return new URL(String.format("http://localhost:%d", port));
  }
 
   /**
@@ -142,10 +149,7 @@ public class DriverService {
   public boolean isRunning() {
     lock.lock();
     try {
-      if (process == null) {
-        return false;
-      }
-      return process.isRunning();
+      return process != null && process.isRunning();
     } catch (IllegalThreadStateException e) {
       return true;
     } finally {
@@ -168,7 +172,7 @@ public class DriverService {
       }
       process = new CommandLine(this.executable, args.toArray(new String[] {}));
       process.setEnvironmentVariables(environment);
-      process.copyOutputTo(outputStream);
+      process.copyOutputTo(getOutputStream());
       process.executeAsync();
 
       waitUntilAvailable();
@@ -182,7 +186,9 @@ public class DriverService {
       URL status = new URL(url.toString() + "/status");
       new UrlChecker().waitUntilAvailable(20, SECONDS, status);
     } catch (UrlChecker.TimeoutException e) {
-      process.checkForError();
+      if (process != null && !process.isRunning()) {
+        process.checkForError();
+      }
       throw new WebDriverException("Timed out waiting for driver server to start.", e);
     }
   }
@@ -195,28 +201,42 @@ public class DriverService {
    */
   public void stop() {
     lock.lock();
+
+    WebDriverException toThrow = null;
     try {
       if (process == null) {
         return;
       }
-      URL killUrl = new URL(url.toString() + "/shutdown");
-      new UrlChecker().waitUntilUnavailable(3, SECONDS, killUrl);
+
+      try {
+        URL killUrl = new URL(url.toString() + "/shutdown");
+        new UrlChecker().waitUntilUnavailable(3, SECONDS, killUrl);
+      } catch (MalformedURLException e) {
+        toThrow = new WebDriverException(e);
+      } catch (UrlChecker.TimeoutException e) {
+        toThrow = new WebDriverException("Timed out waiting for driver server to shutdown.", e);
+      }
+
       process.destroy();
-    } catch (MalformedURLException e) {
-      throw new WebDriverException(e);
-    } catch (UrlChecker.TimeoutException e) {
-      throw new WebDriverException("Timed out waiting for driver server to shutdown.", e);
     } finally {
       process = null;
       lock.unlock();
     }
+
+    if (toThrow != null) {
+      throw toThrow;
+    }
   }
 
   public void sendOutputTo(OutputStream outputStream) {
-    this.outputStream = outputStream;
+    this.outputStream = Preconditions.checkNotNull(outputStream);
   }
 
-  public static abstract class Builder<DS extends DriverService, B extends Builder> {
+  protected OutputStream getOutputStream() {
+    return outputStream;
+  }
+
+  public static abstract class Builder<DS extends DriverService, B extends Builder<?, ?>> {
 
     private int port = 0;
     private File exe = null;
@@ -229,6 +249,7 @@ public class DriverService {
      * @param file The executable to use.
      * @return A self reference.
      */
+    @SuppressWarnings("unchecked")
     public B usingDriverExecutable(File file) {
       checkNotNull(file);
       checkExecutable(file);

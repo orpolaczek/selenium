@@ -22,16 +22,12 @@ var assert = require('assert');
 var build = require('./build'),
     isDevMode = require('../devmode'),
     webdriver = require('../../'),
-    flow = webdriver.promise.controlFlow(),
     firefox = require('../../firefox'),
     logging = require('../../lib/logging'),
     safari = require('../../safari'),
     remote = require('../../remote'),
     testing = require('../../testing'),
     fileserver = require('./fileserver');
-
-
-const LEGACY_FIREFOX = 'legacy-' + webdriver.Browser.FIREFOX;
 
 
 /**
@@ -42,7 +38,6 @@ var NATIVE_BROWSERS = [
   webdriver.Browser.CHROME,
   webdriver.Browser.EDGE,
   webdriver.Browser.FIREFOX,
-  LEGACY_FIREFOX,
   webdriver.Browser.IE,
   webdriver.Browser.OPERA,
   webdriver.Browser.PHANTOM_JS,
@@ -54,7 +49,6 @@ var noBuild = /^1|true$/i.test(process.env['SELENIUM_NO_BUILD']);
 var serverJar = process.env['SELENIUM_SERVER_JAR'];
 var remoteUrl = process.env['SELENIUM_REMOTE_URL'];
 var useLoopback = process.env['SELENIUM_USE_LOOP_BACK'] == '1';
-var noMarionette = /^0|false$/i.test(process.env['SELENIUM_GECKODRIVER']);
 var startServer = !!serverJar && !remoteUrl;
 var nativeRun = !serverJar && !remoteUrl;
 
@@ -76,9 +70,6 @@ var browsersToTest = (function() {
     if (parts[0] === 'edge') {
       parts[0] = webdriver.Browser.EDGE;
     }
-    if (noMarionette && parts[0] === webdriver.Browser.FIREFOX) {
-      parts[0] = LEGACY_FIREFOX;
-    }
     return parts.join(':');
   });
 
@@ -86,10 +77,6 @@ var browsersToTest = (function() {
     var parts = browser.split(/:/, 3);
     if (parts[0] === 'ie') {
       parts[0] = webdriver.Browser.IE;
-    }
-
-    if (parts[0] === LEGACY_FIREFOX) {
-      return;
     }
 
     if (NATIVE_BROWSERS.indexOf(parts[0]) == -1 && !permitRemoteBrowsers) {
@@ -121,8 +108,6 @@ var browsersToTest = (function() {
       console.log('Running tests using loopback address')
     }
   }
-  console.log(
-      'Promise manager is enabled? ' + webdriver.promise.USE_PROMISE_MANAGER);
 
   return browsers;
 })();
@@ -157,10 +142,6 @@ function TestEnvironment(browserName, server) {
     return server || remoteUrl;
   };
 
-  this.isMarionette = function() {
-    return !noMarionette;
-  };
-
   this.browsers = function(var_args) {
     var browsersToIgnore = Array.prototype.slice.apply(arguments, [0]);
     return browsers(browserName, browsersToIgnore);
@@ -171,15 +152,7 @@ function TestEnvironment(browserName, server) {
     var realBuild = builder.build;
 
     builder.build = function() {
-      var parts = browserName.split(/:/, 3);
-
-      if (parts[0] === LEGACY_FIREFOX) {
-        var options = builder.getFirefoxOptions() || new firefox.Options();
-        options.useGeckoDriver(false);
-        builder.setFirefoxOptions(options);
-
-        parts[0] = webdriver.Browser.FIREFOX;
-      }
+      let parts = browserName.split(/:/, 3);
 
       builder.forBrowser(parts[0], parts[1], parts[2]);
       if (server) {
@@ -229,7 +202,7 @@ function suite(fn, opt_options) {
       if (isDevMode && !noBuild) {
         return build.of(
             '//javascript/atoms/fragments:is-displayed',
-            '//javascript/webdriver/atoms:getAttribute')
+            '//javascript/webdriver/atoms:get-attribute')
             .onlyOnce().go();
       }
     });
@@ -243,15 +216,6 @@ function suite(fn, opt_options) {
 
     browsers.forEach(function(browser) {
       describe('[' + browser + ']', function() {
-
-        if (isDevMode && nativeRun) {
-          if (browser === LEGACY_FIREFOX) {
-            before(function() {
-              return build.of('//javascript/firefox-driver:webdriver')
-                  .onlyOnce().go();
-            });
-          }
-        }
 
         var serverToUse = null;
 

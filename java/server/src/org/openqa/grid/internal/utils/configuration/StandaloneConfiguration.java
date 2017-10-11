@@ -17,6 +17,7 @@
 
 package org.openqa.grid.internal.utils.configuration;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -43,27 +44,33 @@ public class StandaloneConfiguration {
   /**
    * Default client timeout
    */
+  @VisibleForTesting
   static final Integer DEFAULT_TIMEOUT = 1800;
 
   /**
    * Default browser timeout
    */
+  @VisibleForTesting
   static final Integer DEFAULT_BROWSER_TIMEOUT = 0;
 
   /**
    * Default standalone role
    */
+  @VisibleForTesting
   static final String DEFAULT_ROLE = "standalone";
 
   /**
    * Default standalone port
    */
+  @VisibleForTesting
   static final Integer DEFAULT_PORT = 4444;
 
   /**
    * Default state of LogeLevel.FINE log output toggle
    */
+  @VisibleForTesting
   static final Boolean DEFAULT_DEBUG_TOGGLE = false;
+
 
   /*
    * config parameters which do not serialize or deserialize to/from json
@@ -140,8 +147,7 @@ public class StandaloneConfiguration {
   @Expose
   @Parameter(
     names = "-debug",
-    description = "<Boolean> : enables LogLevel.FINE.",
-    arity = 1
+    description = "<Boolean> : enables LogLevel.FINE."
   )
   public Boolean debug = DEFAULT_DEBUG_TOGGLE;
 
@@ -196,6 +202,18 @@ public class StandaloneConfiguration {
   public Integer timeout = DEFAULT_TIMEOUT;
 
   /**
+   * Whether or not to use experimental passthrough mode on a hub or a standalone
+   */
+  @Expose
+  @Parameter(
+      names = "-enablePassThrough",
+      arity = 1,
+      description = "<Boolean>: Whether or not to use the experimental passthrough mode. Defaults to true."
+  )
+  public boolean enablePassThrough = true;
+
+
+  /**
    * Creates a new configuration using the default values.
    */
   public StandaloneConfiguration() {
@@ -242,7 +260,8 @@ public class StandaloneConfiguration {
     if (isMergeAble(other.timeout, timeout)) {
       timeout = other.timeout;
     }
-    // role, port, log, debug, version, and help are not merged, they are only consumed by the immediately running node and can't affect a remote
+    // role, port, log, debug, version, enablePassThrough, and help are not merged, they are only consumed by the
+    // immediately running process and should never affect a remote
   }
 
   /**
@@ -273,11 +292,11 @@ public class StandaloneConfiguration {
     }
 
     if (target instanceof Collection) {
-      return !((Collection) other).isEmpty();
+      return !((Collection<?>) other).isEmpty();
     }
 
     if (target instanceof Map) {
-      return !((Map) other).isEmpty();
+      return !((Map<?, ?>) other).isEmpty();
     }
 
     return true;
@@ -293,6 +312,7 @@ public class StandaloneConfiguration {
     sb.append(toString(format, "port", port));
     sb.append(toString(format, "role", role));
     sb.append(toString(format, "timeout", timeout));
+    sb.append(toString(format, "enablePassThrough", enablePassThrough));
     return sb.toString();
   }
 
@@ -303,16 +323,16 @@ public class StandaloneConfiguration {
 
   public StringBuilder toString(String format, String name, Object value) {
     StringBuilder sb = new StringBuilder();
-    List iterator;
+    List<?> iterator;
     if (value instanceof List) {
-      iterator = (List)value;
+      iterator = (List<?>)value;
     } else {
       iterator = Arrays.asList(value);
     }
     for (Object v : iterator) {
       if (v != null &&
-          !(v instanceof Map && ((Map) v).isEmpty()) &&
-          !(v instanceof Collection && ((Collection) v).isEmpty())) {
+          !(v instanceof Map && ((Map<?, ?>) v).isEmpty()) &&
+          !(v instanceof Collection && ((Collection<?>) v).isEmpty())) {
         sb.append(String.format(format, name, v));
       }
     }

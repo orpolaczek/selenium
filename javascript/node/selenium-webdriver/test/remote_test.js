@@ -17,16 +17,14 @@
 
 'use strict';
 
-var assert = require('assert'),
-    fs = require('fs'),
-    path = require('path');
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 
-var promise = require('../').promise,
-    io = require('../io'),
-    cmd = require('../lib/command'),
-    remote = require('../remote');
-
-const {enablePromiseManager} = require('../lib/test/promise');
+const io = require('../io');
+const cmd = require('../lib/command');
+const remote = require('../remote');
+const {CancellationError} = require('../http/util');
 
 describe('DriverService', function() {
   describe('start()', function() {
@@ -48,24 +46,8 @@ describe('DriverService', function() {
       return service.start(500).then(expectFailure, verifyFailure);
     });
 
-    enablePromiseManager(function() {
-      describe(
-          'failures propagate through control flow if child-process dies',
-          function() {
-            it('', function() {
-              this.timeout(1000);
-
-              return promise.controlFlow().execute(function() {
-                promise.controlFlow().execute(function() {
-                  return service.start(500);
-                });
-              }).then(expectFailure, verifyFailure);
-            });
-          });
-    });
-
     function verifyFailure(e) {
-      assert.ok(!(e instanceof promise.CancellationError));
+      assert.ok(!(e instanceof CancellationError));
       assert.equal('Server terminated early with status 1', e.message);
     }
 
@@ -77,13 +59,13 @@ describe('DriverService', function() {
 
 describe('FileDetector', function() {
   class ExplodingDriver {
-    schedule() {
+    execute() {
       throw Error('unexpected call');
     }
   }
 
   it('returns the original path if the file does not exist', function() {
-    return io.tmpDir(dir => {
+    return io.tmpDir().then(dir => {
       let theFile = path.join(dir, 'not-there');
       return (new remote.FileDetector)
           .handleFile(new ExplodingDriver, theFile)
@@ -92,7 +74,7 @@ describe('FileDetector', function() {
   });
 
   it('returns the original path if it is a directory', function() {
-    return io.tmpDir(dir => {
+    return io.tmpDir().then(dir => {
       return (new remote.FileDetector)
           .handleFile(new ExplodingDriver, dir)
           .then(f => assert.equal(f, dir));
@@ -100,11 +82,11 @@ describe('FileDetector', function() {
   });
 
   it('attempts to upload valid files', function() {
-    return io.tmpFile(theFile => {
+    return io.tmpFile().then(theFile => {
       return (new remote.FileDetector)
           .handleFile(
               new (class FakeDriver {
-                schedule(command) {
+                execute(command) {
                   assert.equal(command.getName(), cmd.Name.UPLOAD_FILE);
                   assert.equal(typeof command.getParameters()['file'], 'string');
                   return Promise.resolve('success!');

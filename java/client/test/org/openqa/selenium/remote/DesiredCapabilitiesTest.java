@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 package org.openqa.selenium.remote;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertSame;
 
 import org.junit.Test;
@@ -36,6 +36,7 @@ import java.util.logging.Level;
 
 @RunWith(JUnit4.class)
 public class DesiredCapabilitiesTest {
+
   @Test
   public void testAddingTheSameCapabilityToAMapTwiceShouldResultInOneEntry() {
     Map<org.openqa.selenium.Capabilities, Class<? extends WebDriver>> capabilitiesToDriver =
@@ -140,6 +141,19 @@ public class DesiredCapabilitiesTest {
 
     DesiredCapabilities caps = new DesiredCapabilities(capabilitiesMap);
     assertEquals(caps.toString().length(), 62);
+  }
+
+  @Test
+  public void canCompareCapabilities() {
+    DesiredCapabilities caps1 = new DesiredCapabilities();
+    DesiredCapabilities caps2 = new DesiredCapabilities();
+    assertEquals(caps1, caps2);
+
+    caps1.setCapability("xxx", "yyy");
+    assertNotEquals(caps1, caps2);
+
+    caps2.setCapability("xxx", "yyy");
+    assertEquals(caps1, caps2);
   }
 
   private String createString(int length) {

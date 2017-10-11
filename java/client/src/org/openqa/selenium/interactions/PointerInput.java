@@ -20,6 +20,7 @@ package org.openqa.selenium.interactions;
 import com.google.common.base.Preconditions;
 
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.internal.WrapsElement;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -36,9 +37,9 @@ public class PointerInput implements InputSource, Encodable {
   private final Kind kind;
   private final String name;
 
-  public PointerInput(Kind kind, Optional<String> name) {
+  public PointerInput(Kind kind, String name) {
     this.kind = Preconditions.checkNotNull(kind, "Must set kind of pointer device");
-    this.name = name.orElse(UUID.randomUUID().toString());
+    this.name = Optional.ofNullable(name).orElse(UUID.randomUUID().toString());
   }
 
   @Override
@@ -197,7 +198,11 @@ public class PointerInput implements InputSource, Encodable {
     private final Object originObject;
 
     public Object asArg() {
-      return originObject;
+      Object arg = originObject;
+      while (arg instanceof WrapsElement) {
+        arg = ((WrapsElement) arg).getWrappedElement();
+      }
+      return arg;
     }
 
     private Origin(Object originObject) {

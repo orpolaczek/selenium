@@ -276,7 +276,6 @@ def test_Finding_ASingle_Element_By_Empty_Class_Name_Should_Throw(driver, pages)
         driver.find_element(By.CLASS_NAME, "")
 
 
-@pytest.mark.xfail_phantomjs(raises=NoSuchElementException)
 def test_Finding_Multiple_Elements_By_Empty_Class_Name_Should_Throw(driver, pages):
     pages.load("xhtmlTest.html")
     with pytest.raises(NoSuchElementException):
@@ -355,6 +354,7 @@ def test_Finding_ALink_By_Xpath_Using_Contains_Keyword_Should_Work(driver, pages
 
 @pytest.mark.xfail_chrome(raises=InvalidSelectorException)
 @pytest.mark.xfail_firefox(raises=InvalidSelectorException)
+@pytest.mark.xfail_remote(raises=InvalidSelectorException)
 @pytest.mark.xfail_marionette(raises=WebDriverException)
 @pytest.mark.xfail_phantomjs(raises=InvalidSelectorException)
 @pytest.mark.xfail_safari(raises=NoSuchElementException)
@@ -642,9 +642,6 @@ def test_Should_Be_Able_To_Find_AHidden_Elements_By_Name(driver, pages):
     assert element.get_attribute("name") == "hidden"
 
 
-@pytest.mark.xfail_marionette(
-    reason='https://bugzilla.mozilla.org/show_bug.cgi?id=1312674',
-    run=False)
 def test_Should_Not_Be_Able_To_Find_An_Element_On_ABlank_Page(driver, pages):
     driver.get("about:blank")
     with pytest.raises(NoSuchElementException):

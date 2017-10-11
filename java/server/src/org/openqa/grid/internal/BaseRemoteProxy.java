@@ -36,6 +36,7 @@ import org.openqa.grid.internal.utils.CapabilityMatcher;
 import org.openqa.grid.internal.utils.DefaultHtmlRenderer;
 import org.openqa.grid.internal.utils.HtmlRenderer;
 import org.openqa.grid.internal.utils.configuration.GridNodeConfiguration;
+import org.openqa.selenium.MutableCapabilities;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.internal.HttpClientFactory;
 
@@ -136,10 +137,10 @@ public class BaseRemoteProxy implements RemoteProxy {
       this.id = remoteHost.toExternalForm();
     }
 
-    List<DesiredCapabilities> capabilities = request.getConfiguration().capabilities;
+    List<MutableCapabilities>capabilities = request.getConfiguration().capabilities;
 
     List<TestSlot> slots = new ArrayList<>();
-    for (DesiredCapabilities capability : capabilities) {
+    for (MutableCapabilities capability : capabilities) {
       Object maxInstance = capability.getCapability(MAX_INSTANCES);
 
       SeleniumProtocol protocol = SeleniumProtocol.fromCapabilitiesMap(capability.asMap());
@@ -172,25 +173,6 @@ public class BaseRemoteProxy implements RemoteProxy {
             .start(); // Thread safety reviewed (hopefully ;)
       }
     }
-  }
-
-  /**
-   * merge the param from config 1 and 2. If a param is present in both, config2 value is used.
-   *
-   * @param configuration1 The first configuration to merge (recessive)
-   * @param configuration2 The second configuration to merge (dominant)
-   * @return The merged collection
-   */
-  private Map<String, Object> mergeConfig(Map<String, Object> configuration1,
-                                          Map<String, Object> configuration2) {
-    Map<String, Object> res = new HashMap<>();
-    res.putAll(configuration1);
-
-    for (String key : configuration2.keySet()) {
-      res.put(key, configuration2.get(key));
-    }
-
-    return res;
   }
 
   public String getId() {

@@ -17,7 +17,6 @@
 #ifndef WEBDRIVER_IE_ELEMENT_H_
 #define WEBDRIVER_IE_ELEMENT_H_
 
-#include <ctime>
 #include <memory>
 #include <string>
 #include <vector>
@@ -50,6 +49,9 @@ class Element {
   int GetAttributeValue(const std::string& attribute_name,
                         std::string* attribute_value,
                         bool* value_is_null);
+  int GetPropertyValue(const std::string& property_name,
+                       std::string* property_value,
+                       bool* value_is_null);
   int GetCssPropertyValue(const std::string& property_name,
                           std::string* property_value);
 
@@ -62,9 +64,6 @@ class Element {
 
   std::string element_id(void) const { return this->element_id_; }
   IHTMLElement* element(void) { return this->element_; }
-
-  clock_t last_click_time(void) const { return this->last_click_time_; }
-  void set_last_click_time(clock_t click_time) { this->last_click_time_ = click_time; }
 
  private:
   int GetLocation(LocationInfo* location,
@@ -91,7 +90,6 @@ class Element {
   std::string element_id_;
   CComPtr<IHTMLElement> element_;
   HWND containing_window_handle_;
-  clock_t last_click_time_;
 };
 
 } // namespace webdriver

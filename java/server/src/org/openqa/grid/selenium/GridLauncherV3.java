@@ -92,9 +92,9 @@ public class GridLauncherV3 {
     configureLogging(launcher.configuration);
 
     log.info(String.format(
-      "Selenium build info: version: '%s', revision: '%s'",
-      buildInfo.getReleaseLabel(),
-      buildInfo.getBuildRevision()));
+        "Selenium build info: version: '%s', revision: '%s'",
+        buildInfo.getReleaseLabel(),
+        buildInfo.getBuildRevision()));
     try {
       launcher.launch();
     } catch (Exception e) {

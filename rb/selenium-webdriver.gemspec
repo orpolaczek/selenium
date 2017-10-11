@@ -1,11 +1,9 @@
-# -*- encoding: utf-8 -*-
-
 root = File.expand_path(File.dirname(__FILE__))
 raise "cwd must be #{root} when reading gemspec" if root != Dir.pwd
 
 Gem::Specification.new do |s|
   s.name = 'selenium-webdriver'
-  s.version = '3.3.0'
+  s.version = '3.6.0'
 
   s.authors = ['Alex Rodionov', 'Titus Fortner']
   s.email = ['p0deje@gmail.com', 'titusfortner@gmail.com']
@@ -24,11 +22,10 @@ HTML of the application.'
 
   s.add_runtime_dependency 'rubyzip', ['~> 1.0']
   s.add_runtime_dependency 'childprocess', ['~> 0.5']
-  s.add_runtime_dependency 'websocket', ['~> 1.0']
 
   s.add_development_dependency 'rspec', ['~> 3.0']
   s.add_development_dependency 'rack', ['~> 1.0']
-  s.add_development_dependency 'ci_reporter', ['~> 1.6', '>= 1.6.2']
   s.add_development_dependency 'webmock', ['~> 2.0']
-  s.add_development_dependency 'yard', ['~> 0.8.7']
+  s.add_development_dependency 'yard', ['~> 0.9.9']
+  s.add_development_dependency 'rubocop', ['~> 0.50.0']
 end

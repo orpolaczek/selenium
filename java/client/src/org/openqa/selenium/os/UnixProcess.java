@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 class UnixProcess implements OsProcess {
@@ -55,6 +56,7 @@ class UnixProcess implements OsProcess {
   private volatile OutputStream drainTo;
   private SeleniumWatchDog executeWatchdog = new SeleniumWatchDog(
       ExecuteWatchdog.INFINITE_TIMEOUT);
+  private PumpStreamHandler streamHandler;
 
   private final org.apache.commons.exec.CommandLine cl;
   private final Map<String, String> env = new ConcurrentHashMap<>();
@@ -97,8 +99,8 @@ class UnixProcess implements OsProcess {
       final OutputStream outputStream = getOutputStream();
       executeWatchdog.reset();
       executor.setWatchdog(executeWatchdog);
-      executor.setStreamHandler(new PumpStreamHandler(
-          outputStream, outputStream, getInputStream()));
+      streamHandler = new PumpStreamHandler(outputStream, outputStream, getInputStream());
+      executor.setStreamHandler(streamHandler);
       executor.execute(cl, getMergedEnv(), handler);
     } catch (IOException e) {
       throw new WebDriverException(e);
@@ -114,17 +116,34 @@ class UnixProcess implements OsProcess {
     SeleniumWatchDog watchdog = executeWatchdog;
     watchdog.waitForProcessStarted();
 
+    // I literally have no idea why we don't try and kill the process nicely on Windows. If you do,
+    // answers on the back of a postcard to SeleniumHQ, please.
     if (!thisIsWindows()) {
       watchdog.destroyProcess();
       watchdog.waitForTerminationAfterDestroy(2, SECONDS);
-      if (!isRunning()) {
-        return getExitCode();
-      }
-      log.info("Command failed to close cleanly. Destroying forcefully (v2). " + this);
     }
 
-    watchdog.destroyHarder();
-    watchdog.waitForTerminationAfterDestroy(1, SECONDS);
+    if (isRunning()) {
+      watchdog.destroyHarder();
+      watchdog.waitForTerminationAfterDestroy(1, SECONDS);
+    }
+
+    // Make a best effort to drain the streams.
+    if (streamHandler != null) {
+      // Stop trying to read the output stream so that we don't race with the stream being closed
+      // when the process is destroyed.
+      streamHandler.setStopTimeout(2000);
+      try {
+        streamHandler.stop();
+      } catch (IOException e) {
+        // Ignore and destroy the process anyway.
+        log.log(
+            Level.INFO,
+            "Unable to drain process streams. Ignoring but the exception being swallowed follows.",
+            e);
+      }
+    }
+
     if (!isRunning()) {
       return getExitCode();
     }

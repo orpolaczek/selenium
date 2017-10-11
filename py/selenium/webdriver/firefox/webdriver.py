@@ -104,12 +104,13 @@ class WebDriver(RemoteWebDriver):
         self.binary = None
         self.profile = None
         self.service = None
-        self._w3c = False
 
         if capabilities is None:
             capabilities = DesiredCapabilities.FIREFOX.copy()
         if firefox_options is None:
             firefox_options = Options()
+
+        capabilities = dict(capabilities)
 
         if capabilities.get("binary"):
             self.binary = capabilities["binary"]
@@ -138,8 +139,7 @@ class WebDriver(RemoteWebDriver):
         # TODO(ato): Perform conformance negotiation
 
         if capabilities.get("marionette"):
-            self._w3c = True
-
+            capabilities.pop("marionette")
             self.service = Service(executable_path, log_path=log_path)
             self.service.start()
 
@@ -186,7 +186,7 @@ class WebDriver(RemoteWebDriver):
             # the socket.
             pass
 
-        if self._w3c:
+        if self.w3c:
             self.service.stop()
         else:
             self.binary.kill()
@@ -229,3 +229,27 @@ class WebDriver(RemoteWebDriver):
             yield
         finally:
             self.set_context(initial_context)
+
+    def install_addon(self, path, temporary=None):
+        """
+        Installs Firefox addon.
+
+        Returns identifier of installed addon. This identifier can later
+        be used to uninstall addon.
+
+        :Usage:
+            driver.install_addon('firebug.xpi')
+        """
+        payload = {"path": path}
+        if temporary is not None:
+            payload["temporary"] = temporary
+        return self.execute("INSTALL_ADDON", payload)["value"]
+
+    def uninstall_addon(self, identifier):
+        """
+        Uninstalls Firefox addon using its identifier.
+
+        :Usage:
+            driver.uninstall_addon('addon@foo.com')
+        """
+        self.execute("UNINSTALL_ADDON", {"id": identifier})

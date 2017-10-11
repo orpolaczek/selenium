@@ -265,11 +265,9 @@ class Driver extends webdriver.WebDriver {
    *     options.
    * @param {remote.DriverService=} opt_service The session to use; will use
    *     the {@linkplain #getDefaultService default service} by default.
-   * @param {promise.ControlFlow=} opt_flow The control flow to use, or
-   *     {@code null} to use the currently active flow.
    * @return {!Driver} A new driver instance.
    */
-  static createSession(opt_config, opt_service, opt_flow) {
+  static createSession(opt_config, opt_service) {
     var service = opt_service || getDefaultService();
     var client = service.start().then(url => new http.HttpClient(url));
     var executor = new http.Executor(client);
@@ -278,8 +276,8 @@ class Driver extends webdriver.WebDriver {
         opt_config instanceof Options ? opt_config.toCapabilities() :
         (opt_config || capabilities.Capabilities.edge());
 
-    return /** @type {!Driver} */(webdriver.WebDriver.createSession(
-        executor, caps, opt_flow, this, () => service.kill()));
+    return /** @type {!Driver} */(super.createSession(
+        executor, caps, () => service.kill()));
   }
 
   /**

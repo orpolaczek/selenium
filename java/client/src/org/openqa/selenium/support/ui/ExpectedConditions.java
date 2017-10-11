@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 package org.openqa.selenium.support.ui;
 
 import com.google.common.base.Joiner;
@@ -176,8 +175,7 @@ public class ExpectedConditions {
    * @param locator used to find the element
    * @return the WebElement once it is located
    */
-  public static ExpectedCondition<WebElement> presenceOfElementLocated(
-    final By locator) {
+  public static ExpectedCondition<WebElement> presenceOfElementLocated(final By locator) {
     return new ExpectedCondition<WebElement>() {
       @Override
       public WebElement apply(WebDriver driver) {
@@ -199,8 +197,7 @@ public class ExpectedConditions {
    * @param locator used to find the element
    * @return the WebElement once it is located and visible
    */
-  public static ExpectedCondition<WebElement> visibilityOfElementLocated(
-    final By locator) {
+  public static ExpectedCondition<WebElement> visibilityOfElementLocated(final By locator) {
     return new ExpectedCondition<WebElement>() {
       @Override
       public WebElement apply(WebDriver driver) {
@@ -283,8 +280,7 @@ public class ExpectedConditions {
    * @param element the WebElement
    * @return the (same) WebElement once it is visible
    */
-  public static ExpectedCondition<WebElement> visibilityOf(
-    final WebElement element) {
+  public static ExpectedCondition<WebElement> visibilityOf(final WebElement element) {
     return new ExpectedCondition<WebElement>() {
       @Override
       public WebElement apply(WebDriver driver) {
@@ -334,8 +330,8 @@ public class ExpectedConditions {
    * @param text    to be present in the element
    * @return true once the element contains the given text
    */
-  public static ExpectedCondition<Boolean> textToBePresentInElement(
-    final WebElement element, final String text) {
+  public static ExpectedCondition<Boolean> textToBePresentInElement(final WebElement element,
+                                                                    final String text) {
 
     return new ExpectedCondition<Boolean>() {
       @Override
@@ -365,8 +361,8 @@ public class ExpectedConditions {
    * @deprecated Use {@link #textToBePresentInElementLocated(By, String)} instead
    */
   @Deprecated
-  public static ExpectedCondition<Boolean> textToBePresentInElement(
-    final By locator, final String text) {
+  public static ExpectedCondition<Boolean> textToBePresentInElement(final By locator,
+                                                                    final String text) {
     return textToBePresentInElementLocated(locator, text);
   }
 
@@ -378,8 +374,8 @@ public class ExpectedConditions {
    * @param text    to be present in the element found by the locator
    * @return true once the first element located by locator contains the given text
    */
-  public static ExpectedCondition<Boolean> textToBePresentInElementLocated(
-    final By locator, final String text) {
+  public static ExpectedCondition<Boolean> textToBePresentInElementLocated(final By locator,
+                                                                           final String text) {
 
     return new ExpectedCondition<Boolean>() {
       @Override
@@ -408,8 +404,8 @@ public class ExpectedConditions {
    * @param text    to be present in the element's value attribute
    * @return true once the element's value attribute contains the given text
    */
-  public static ExpectedCondition<Boolean> textToBePresentInElementValue(
-    final WebElement element, final String text) {
+  public static ExpectedCondition<Boolean> textToBePresentInElementValue(final WebElement element,
+                                                                         final String text) {
 
     return new ExpectedCondition<Boolean>() {
       @Override
@@ -441,8 +437,8 @@ public class ExpectedConditions {
    * @return true once the value attribute of the first element located by locator contains the
    * given text
    */
-  public static ExpectedCondition<Boolean> textToBePresentInElementValue(
-    final By locator, final String text) {
+  public static ExpectedCondition<Boolean> textToBePresentInElementValue(final By locator,
+                                                                         final String text) {
 
     return new ExpectedCondition<Boolean>() {
       @Override
@@ -499,8 +495,7 @@ public class ExpectedConditions {
    * @param locator used to find the frame
    * @return WebDriver instance after frame has been switched
    */
-  public static ExpectedCondition<WebDriver> frameToBeAvailableAndSwitchToIt(
-    final By locator) {
+  public static ExpectedCondition<WebDriver> frameToBeAvailableAndSwitchToIt(final By locator) {
     return new ExpectedCondition<WebDriver>() {
       @Override
       public WebDriver apply(WebDriver driver) {
@@ -576,8 +571,7 @@ public class ExpectedConditions {
    * @param locator used to find the element
    * @return true if the element is not displayed or the element doesn't exist or stale element
    */
-  public static ExpectedCondition<Boolean> invisibilityOfElementLocated(
-    final By locator) {
+  public static ExpectedCondition<Boolean> invisibilityOfElementLocated(final By locator) {
     return new ExpectedCondition<Boolean>() {
       @Override
       public Boolean apply(WebDriver driver) {
@@ -609,8 +603,8 @@ public class ExpectedConditions {
    * @param text    of the element
    * @return true if no such element, stale element or displayed text not equal that provided
    */
-  public static ExpectedCondition<Boolean> invisibilityOfElementWithText(
-    final By locator, final String text) {
+  public static ExpectedCondition<Boolean> invisibilityOfElementWithText(final By locator,
+                                                                         final String text) {
     return new ExpectedCondition<Boolean>() {
       @Override
       public Boolean apply(WebDriver driver) {
@@ -642,16 +636,11 @@ public class ExpectedConditions {
    * @param locator used to find the element
    * @return the WebElement once it is located and clickable (visible and enabled)
    */
-  public static ExpectedCondition<WebElement> elementToBeClickable(
-    final By locator) {
+  public static ExpectedCondition<WebElement> elementToBeClickable(final By locator) {
     return new ExpectedCondition<WebElement>() {
-
-      public ExpectedCondition<WebElement> visibilityOfElementLocated =
-        ExpectedConditions.visibilityOfElementLocated(locator);
-
       @Override
       public WebElement apply(WebDriver driver) {
-        WebElement element = visibilityOfElementLocated.apply(driver);
+        WebElement element = visibilityOfElementLocated(locator).apply(driver);
         try {
           if (element != null && element.isEnabled()) {
             return element;
@@ -675,19 +664,15 @@ public class ExpectedConditions {
    * @param element the WebElement
    * @return the (same) WebElement once it is clickable (visible and enabled)
    */
-  public static ExpectedCondition<WebElement> elementToBeClickable(
-    final WebElement element) {
+  public static ExpectedCondition<WebElement> elementToBeClickable(final WebElement element) {
     return new ExpectedCondition<WebElement>() {
-
-      public ExpectedCondition<WebElement> visibilityOfElement =
-        ExpectedConditions.visibilityOf(element);
 
       @Override
       public WebElement apply(WebDriver driver) {
-        WebElement element = visibilityOfElement.apply(driver);
+        WebElement visibleElement = visibilityOf(element).apply(driver);
         try {
-          if (element != null && element.isEnabled()) {
-            return element;
+          if (visibleElement != null && visibleElement.isEnabled()) {
+            return visibleElement;
           }
           return null;
         } catch (StaleElementReferenceException e) {
@@ -706,10 +691,9 @@ public class ExpectedConditions {
    * Wait until an element is no longer attached to the DOM.
    *
    * @param element The element to wait for.
-   * @return false is the element is still attached to the DOM, true otherwise.
+   * @return false if the element is still attached to the DOM, true otherwise.
    */
-  public static ExpectedCondition<Boolean> stalenessOf(
-    final WebElement element) {
+  public static ExpectedCondition<Boolean> stalenessOf(final WebElement element) {
     return new ExpectedCondition<Boolean>() {
       @Override
       public Boolean apply(WebDriver ignored) {
@@ -741,8 +725,7 @@ public class ExpectedConditions {
    * @param <T>       return type of the condition provided
    * @return the result of the provided condition
    */
-  public static <T> ExpectedCondition<T> refreshed(
-    final ExpectedCondition<T> condition) {
+  public static <T> ExpectedCondition<T> refreshed(final ExpectedCondition<T> condition) {
     return new ExpectedCondition<T>() {
       @Override
       public T apply(WebDriver driver) {
@@ -864,7 +847,7 @@ public class ExpectedConditions {
   /**
    * An expectation with the logical opposite condition of the given condition.
    *
-   * Note that if the Condition your are inverting throws an exception that is caught by the Ignored
+   * Note that if the Condition you are inverting throws an exception that is caught by the Ignored
    * Exceptions, the inversion will not take place and lead to confusing results.
    *
    * @param condition ExpectedCondition to be inverted
@@ -875,7 +858,7 @@ public class ExpectedConditions {
       @Override
       public Boolean apply(WebDriver driver) {
         Object result = condition.apply(driver);
-        return result == null || result == Boolean.FALSE;
+        return result == null || result.equals(Boolean.FALSE);
       }
 
       @Override
@@ -1016,7 +999,7 @@ public class ExpectedConditions {
    * An expectation for checking number of WebElements with given locator
    *
    * @param locator used to find the element
-   * @param number  user to define exact number of elements
+   * @param number  used to define exact number of elements
    * @return Boolean true when size of elements list is equal to defined
    */
   public static ExpectedCondition<List<WebElement>> numberOfElementsToBeMoreThan(final By locator,
@@ -1044,7 +1027,7 @@ public class ExpectedConditions {
    * number
    *
    * @param locator used to find the element
-   * @param number  user to define maximum number of elements
+   * @param number  used to define maximum number of elements
    * @return Boolean true when size of elements list is less than defined
    */
   public static ExpectedCondition<List<WebElement>> numberOfElementsToBeLessThan(final By locator,
@@ -1071,7 +1054,7 @@ public class ExpectedConditions {
    * An expectation for checking number of WebElements with given locator
    *
    * @param locator used to find the element
-   * @param number  user to define number of elements
+   * @param number  used to define number of elements
    * @return Boolean true when size of elements list is equal to defined
    */
   public static ExpectedCondition<List<WebElement>> numberOfElementsToBe(final By locator,
@@ -1097,7 +1080,7 @@ public class ExpectedConditions {
   /**
    * An expectation for checking given WebElement has attribute with a specific value
    *
-   * @param element   used to check it's parameters
+   * @param element   used to check its parameters
    * @param attribute used to define css or html attribute
    * @param value     used as expected attribute value
    * @return Boolean true when element has css or html attribute with the value
@@ -1129,7 +1112,7 @@ public class ExpectedConditions {
    * An expectation for checking WebElement with given locator has attribute which contains specific
    * value
    *
-   * @param element   used to check it's parameters
+   * @param element   used to check its parameters
    * @param attribute used to define css or html attribute
    * @param value     used as expected attribute value
    * @return Boolean true when element has css or html attribute which contains the value
@@ -1158,15 +1141,14 @@ public class ExpectedConditions {
    * An expectation for checking WebElement with given locator has attribute which contains specific
    * value
    *
-   * @param locator   used to define WebElement to check it's parameters
+   * @param locator   used to define WebElement to check its parameters
    * @param attribute used to define css or html attribute
    * @param value     used as expected attribute value
    * @return Boolean true when element has css or html attribute which contains the value
    */
-  public static ExpectedCondition<Boolean> attributeContains(
-      final By locator,
-      final String attribute,
-      final String value) {
+  public static ExpectedCondition<Boolean> attributeContains(final By locator,
+                                                             final String attribute,
+                                                             final String value) {
     return new ExpectedCondition<Boolean>() {
       private String currentValue = null;
 
@@ -1187,20 +1169,13 @@ public class ExpectedConditions {
   /**
    * An expectation for checking WebElement any non empty value for given attribute
    *
-   * @param element   used to check it's parameters
+   * @param element   used to check its parameters
    * @param attribute used to define css or html attribute
    * @return Boolean true when element has css or html attribute with non empty value
    */
   public static ExpectedCondition<Boolean> attributeToBeNotEmpty(final WebElement element,
                                                                  final String attribute) {
-    return new ExpectedCondition<Boolean>() {
-      private String currentValue = null;
-
-      @Override
-      public Boolean apply(WebDriver driver) {
-        return getAttributeOrCssValue(element, attribute).isPresent();
-      }
-    };
+    return driver -> getAttributeOrCssValue(element, attribute).isPresent();
   }
 
   private static Optional<String> getAttributeOrCssValue(WebElement element, String name) {
@@ -1412,7 +1387,7 @@ public class ExpectedConditions {
   /**
    * An expectation with the logical or condition of the given list of conditions.
    *
-   * Each condition is checked until at leas one of them returns true or not null
+   * Each condition is checked until at least one of them returns true or not null.
    *
    * @param conditions ExpectedCondition is a list of alternative conditions
    * @return true once one of conditions is satisfied
@@ -1421,7 +1396,9 @@ public class ExpectedConditions {
     return new ExpectedCondition<Boolean>() {
       @Override
       public Boolean apply(WebDriver driver) {
+        RuntimeException lastException = null;
         for (ExpectedCondition<?> condition : conditions) {
+          try {
             Object result = condition.apply(driver);
             if (result != null) {
               if (result instanceof Boolean) {
@@ -1432,6 +1409,12 @@ public class ExpectedConditions {
                 return true;
               }
             }
+          } catch (RuntimeException e) {
+            lastException = e;
+          }
+        }
+        if (lastException != null) {
+          throw lastException;
         }
         return false;
       }
@@ -1517,8 +1500,7 @@ public class ExpectedConditions {
    * @param javaScript as executable js line
    * @return true once js return string
    */
-  public static ExpectedCondition<Object> jsReturnsValue(
-    final String javaScript) {
+  public static ExpectedCondition<Object> jsReturnsValue(final String javaScript) {
     return new ExpectedCondition<Object>() {
       @Override
       public Object apply(WebDriver driver) {
@@ -1526,7 +1508,7 @@ public class ExpectedConditions {
           Object value = ((JavascriptExecutor) driver).executeScript(javaScript);
 
           if (value instanceof List) {
-            return ((List) value).isEmpty() ? null : value;
+            return ((List<?>) value).isEmpty() ? null : value;
           }
           if (value instanceof String) {
             return ((String) value).isEmpty() ? null : value;

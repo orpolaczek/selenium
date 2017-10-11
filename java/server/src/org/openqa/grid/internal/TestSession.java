@@ -17,16 +17,18 @@
 
 package org.openqa.grid.internal;
 
-import com.google.common.base.Charsets;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.io.ByteStreams;
 import com.google.common.net.MediaType;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonParseException;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.message.BasicHttpEntityEnclosingRequest;
@@ -42,6 +44,7 @@ import org.openqa.grid.web.servlet.handler.RequestType;
 import org.openqa.grid.web.servlet.handler.SeleniumBasedRequest;
 import org.openqa.grid.web.servlet.handler.SeleniumBasedResponse;
 import org.openqa.grid.web.servlet.handler.WebDriverRequest;
+import org.openqa.selenium.remote.ErrorCodes;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -49,10 +52,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
+import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.text.DateFormat;
+import java.time.Clock;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -84,7 +89,7 @@ public class TestSession {
   private final Map<String, Object> requestedCapabilities;
   private Map<String, Object> objects = Collections.synchronizedMap(new HashMap<String, Object>());
   private volatile boolean ignoreTimeout = false;
-  private final TimeSource timeSource;
+  private final Clock clock;
   private volatile boolean forwardingRequest;
   private final int MAX_NETWORK_LATENCY = 1000;
 
@@ -95,13 +100,15 @@ public class TestSession {
   /*
    * Creates a test session on the specified testSlot.
    */
-  public TestSession(TestSlot slot, Map<String, Object> requestedCapabilities,
-                     TimeSource timeSource) {
+  public TestSession(
+      TestSlot slot,
+      Map<String, Object> requestedCapabilities,
+      Clock clock) {
     internalKey = UUID.randomUUID().toString();
     this.slot = slot;
     this.requestedCapabilities = requestedCapabilities;
-    this.timeSource = timeSource;
-    lastActivity = this.timeSource.currentTimeInMillis();
+    this.clock = clock;
+    lastActivity = this.clock.millis();
   }
 
   /**
@@ -142,11 +149,11 @@ public class TestSession {
     if (ignoreTimeout) {
       return 0;
     }
-    return timeSource.currentTimeInMillis() - lastActivity;
+    return clock.millis() - lastActivity;
   }
 
   public boolean isOrphaned() {
-    final long elapsedSinceCreation = timeSource.currentTimeInMillis() - sessionCreatedAt;
+    final long elapsedSinceCreation = clock.millis() - sessionCreatedAt;
 
     // The session needs to have been open for at least the time interval and we need to have not
     // seen any new commands during that time frame.
@@ -206,9 +213,10 @@ public class TestSession {
   /*
    * forwards the request to the node.
    */
-  public String forward(SeleniumBasedRequest request, HttpServletResponse response,
-                        boolean newSessionRequest)
-      throws IOException {
+  public String forward(
+      SeleniumBasedRequest request,
+      HttpServletResponse response,
+      boolean newSessionRequest) throws IOException {
     String res = null;
 
     String currentThreadName = Thread.currentThread().getName();
@@ -220,12 +228,12 @@ public class TestSession {
         ((CommandListener) slot.getProxy()).beforeCommand(this, request, response);
       }
 
-      lastActivity = timeSource.currentTimeInMillis();
+      lastActivity = clock.millis();
 
-      HttpRequest proxyRequest = prepareProxyRequest(request/*, config*/);
+      HttpRequest proxyRequest = prepareProxyRequest(request);
 
       HttpResponse proxyResponse = sendRequestToNode(proxyRequest);
-      lastActivity = timeSource.currentTimeInMillis();
+      lastActivity = clock.millis();
       HttpEntity responseBody = proxyResponse.getEntity();
       try {
         final int statusCode = proxyResponse.getStatusLine().getStatusCode();
@@ -245,9 +253,11 @@ public class TestSession {
             statusCode == HttpServletResponse.SC_UNAUTHORIZED)) {
           removeIncompleteNewSessionRequest();
         }
-        if (statusCode == HttpServletResponse.SC_NOT_FOUND) {
-          removeSessionBrowserTimeout();
-        }
+
+        consumedNewWebDriverSessionBody = closeSessionIfNecessary(
+            consumedNewWebDriverSessionBody,
+            request,
+            proxyResponse);
 
         byte[] contentBeingForwarded = null;
         if (responseBody != null) {
@@ -265,8 +275,7 @@ public class TestSession {
             in = new ByteArrayInputStream(consumedNewWebDriverSessionBody);
           }
 
-          final byte[] bytes = drainInputStream(in);
-          contentBeingForwarded = bytes;
+          contentBeingForwarded = drainInputStream(in);
         }
 
         if (slot.getProxy() instanceof CommandListener) {
@@ -292,6 +301,72 @@ public class TestSession {
     }
   }
 
+  private Charset detectEncoding(HttpResponse proxyResponse) {
+    Header typeHeader = proxyResponse.getFirstHeader("Content-Type");
+    Charset encoding;
+    try {
+      encoding = MediaType.parse(typeHeader.getValue()).charset().or(UTF_8);
+    } catch (IllegalArgumentException | NullPointerException e) {
+      encoding = UTF_8;
+    }
+    return encoding;
+  }
+
+  private byte[] closeSessionIfNecessary(
+      byte[] consumed,
+      SeleniumBasedRequest request,
+      HttpResponse proxyResponse) throws IOException {
+    // There are three ways for a session to be indicated missing:
+    // 1. RC --- status code 404
+    // 2. Json Wire Protocol --- top level JON "status" to be NO_SUCH_SESSION
+    // 3. W3C WebDriver Protocol --- {"value": {"error": "invalid session id"}}
+    // In the webdriver cases, the status code should also indicate an error
+    if (request instanceof LegacySeleniumRequest) {
+      if (proxyResponse.getStatusLine().getStatusCode() == HttpServletResponse.SC_NOT_FOUND) {
+        removeSessionBrowserTimeout();
+      }
+      return consumed;
+    }
+
+    // We have a webdriver response.
+    if (proxyResponse.getEntity() == null) {
+      // But there's nothing we can do.
+      return consumed;
+    }
+
+    if (consumed == null) {
+      try (InputStream in = proxyResponse.getEntity().getContent()) {
+        consumed = ByteStreams.toByteArray(in);
+      }
+    }
+
+    try (InputStream in = new ByteArrayInputStream(consumed);
+         Reader reader = new InputStreamReader(in, detectEncoding(proxyResponse))) {
+      Object body = new GsonBuilder().setLenient().create().fromJson(reader, Object.class);
+      if (body instanceof Map) {
+        Map<?, ?> json = (Map<?, ?>) body;
+        Object raw = json.get("status");
+        if (raw instanceof Number && ((Number) raw).intValue() == ErrorCodes.NO_SUCH_SESSION) {
+          removeSessionBrowserTimeout();
+          return consumed;
+        } else {
+          raw = json.get("value");
+          if (raw instanceof Map) {
+            Map<?, ?> w3c = (Map<?, ?>) raw;
+            if ("invalid session id".equals(w3c.get("error"))) {
+              removeSessionBrowserTimeout();
+              return consumed;
+            }
+          }
+        }
+      }
+    } catch (JsonParseException e) {
+      // Nothing to do --- poorly formed payload.
+    }
+
+    return consumed;
+  }
+
   private void setThreadDisplayName() {
     DateFormat dfmt = DateFormat.getTimeInstance();
     String name = "Forwarding " + this + " to " + slot.getRemoteURL() + " at " +
@@ -315,34 +390,42 @@ public class TestSession {
   }
 
   private byte[] updateHubIfNewWebDriverSession(
-      SeleniumBasedRequest request, HttpResponse proxyResponse) throws IOException {
-    byte[] consumedData = null;
-    if (request.getRequestType() == RequestType.START_SESSION
-        && request instanceof WebDriverRequest) {
-      Header h = proxyResponse.getFirstHeader("Location");
-      if (h == null) {
-        if (isSuccessJsonResponse(proxyResponse) && proxyResponse.getEntity() != null) {
-          InputStream stream = proxyResponse.getEntity().getContent();
-          consumedData = ByteStreams.toByteArray(stream);
-          stream.close();
+      SeleniumBasedRequest request,
+      HttpResponse proxyResponse) throws IOException {
+    if (!(request.getRequestType() == RequestType.START_SESSION &&
+          request instanceof WebDriverRequest)) {
+      return null;
+    }
 
-          String contentString = new String(consumedData, Charsets.UTF_8);
-          ExternalSessionKey key = ExternalSessionKey.fromJsonResponseBody(contentString);
-          if (key == null) {
-            throw new GridException(
-                "webdriver new session JSON response body did not contain a session ID");
-          }
-          setExternalKey(key);
-          return consumedData;
-        }
-        throw new GridException(
-            "new session request for webdriver should contain a location header "
-            + "or an 'application/json;charset=UTF-8' response body with the session ID.");
-      }
+    Header h = proxyResponse.getFirstHeader("Location");
+    if (h != null) {
+      // The new session has sent a redirect. Extract the session key from it
       ExternalSessionKey key = ExternalSessionKey.fromWebDriverRequest(h.getValue());
       setExternalKey(key);
+      return null;
     }
-    return consumedData;
+
+    if (isSuccessJsonResponse(proxyResponse) && proxyResponse.getEntity() != null) {
+      // Determine the character encoding from the response. Default to UTF-8
+      Charset encoding = detectEncoding(proxyResponse);
+
+      byte[] consumedData;
+      try (InputStream stream = proxyResponse.getEntity().getContent()) {
+        consumedData = ByteStreams.toByteArray(stream);
+      }
+
+      String contentString = new String(consumedData, encoding);
+      ExternalSessionKey key = ExternalSessionKey.fromJsonResponseBody(contentString);
+      if (key == null) {
+        throw new GridException(
+            "webdriver new session JSON response body did not contain a session ID");
+      }
+      setExternalKey(key);
+      return consumedData;
+    }
+    throw new GridException(
+        "new session request for webdriver should contain a location header "
+        + "or an 'application/json;charset=UTF-8' response body with the session ID.");
   }
 
   private static boolean isSuccessJsonResponse(HttpResponse response) {
@@ -355,7 +438,7 @@ public class TestSession {
           continue;
         }
 
-        if (MediaType.JSON_UTF_8.is(type)) {
+        if (MediaType.JSON_UTF_8.is(type) || MediaType.JAVASCRIPT_UTF_8.is(type)) {
           return true;
         }
       }
@@ -363,8 +446,7 @@ public class TestSession {
     return false;
   }
 
-  private HttpResponse sendRequestToNode(HttpRequest proxyRequest) throws ClientProtocolException,
-                                                                          IOException {
+  private HttpResponse sendRequestToNode(HttpRequest proxyRequest) throws IOException {
     HttpClient client = getClient();
     URL remoteURL = slot.getRemoteURL();
     HttpHost host = new HttpHost(remoteURL.getHost(), remoteURL.getPort(), remoteURL.getProtocol());
@@ -372,16 +454,14 @@ public class TestSession {
     return client.execute(host, proxyRequest);
   }
 
-  private HttpRequest prepareProxyRequest(HttpServletRequest request
-/*, ForwardConfiguration config*/)
-      throws IOException {
+  private HttpRequest prepareProxyRequest(HttpServletRequest request) throws IOException {
     URL remoteURL = slot.getRemoteURL();
 
     String pathSpec = request.getServletPath() + request.getContextPath();
     String path = request.getRequestURI();
     if (!path.startsWith(pathSpec)) {
-      throw new IllegalStateException("Expected path " + path + " to start with pathSpec "
-                                      + pathSpec);
+      throw new IllegalStateException(
+          "Expected path " + path + " to start with pathSpec " + pathSpec);
     }
     String end = path.substring(pathSpec.length());
     String ok = remoteURL + end;
@@ -458,8 +538,6 @@ public class TestSession {
         sb.append(line);/* .append("\n") */
       }
       in.close();
-    } catch (UnsupportedEncodingException e) {
-      throw new RuntimeException(e);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -467,9 +545,11 @@ public class TestSession {
     return res;
   }
 
-  private void processResponseHeaders(HttpServletRequest request, HttpServletResponse response,
-                                      URL remoteURL, HttpResponse proxyResponse)
-      throws MalformedURLException {
+  private void processResponseHeaders(
+      HttpServletRequest request,
+      HttpServletResponse response,
+      URL remoteURL,
+      HttpResponse proxyResponse) throws MalformedURLException {
     String pathSpec = request.getServletPath() + request.getContextPath();
     for (Header header : proxyResponse.getAllHeaders()) {
       String name = header.getName();
@@ -580,7 +660,7 @@ public class TestSession {
    */
   public void setIgnoreTimeout(boolean ignore) {
     if (!ignore) {
-      lastActivity = timeSource.currentTimeInMillis();
+      lastActivity = clock.millis();
     }
     this.ignoreTimeout = ignore;
 

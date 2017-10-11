@@ -45,7 +45,6 @@ import org.seleniumhq.jetty9.server.handler.ContextHandler;
 
 import java.io.IOException;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
@@ -84,12 +83,6 @@ public class DriverServletTest {
         return servletContext;
       }
 
-      @Override
-      protected void createSessionCleaner(Logger logger, DriverSessions driverSessions,
-                                          long sessionTimeOutInMs, long browserTimeoutInMs) {
-        clientTimeout = sessionTimeOutInMs;
-        browserTimeout = browserTimeoutInMs;
-      }
     };
     driverServlet.init();
   }
@@ -225,8 +218,8 @@ public class DriverServletTest {
 
   @Test
   public void timeouts() throws IOException, ServletException {
-    assertEquals(2000, browserTimeout);
-    assertEquals(18000, clientTimeout);
+    assertEquals(2000, driverServlet.getIndividualCommandTimeoutMs());
+    assertEquals(18000, driverServlet.getInactiveSessionTimeout());
   }
 
 }

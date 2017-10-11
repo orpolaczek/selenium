@@ -28,9 +28,10 @@ import static org.openqa.selenium.testing.Driver.PHANTOMJS;
 
 import org.junit.After;
 import org.junit.Test;
+import org.openqa.selenium.Capabilities;
+import org.openqa.selenium.ImmutableCapabilities;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.remote.CapabilityType;
-import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.testing.Ignore;
 import org.openqa.selenium.testing.JUnit4TestBase;
 import org.openqa.selenium.testing.NeedsLocalEnvironment;
@@ -42,7 +43,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 
-@Ignore({HTMLUNIT, IE, PHANTOMJS, MARIONETTE})
+@Ignore(HTMLUNIT)
+@Ignore(IE)
+@Ignore(PHANTOMJS)
+@Ignore(MARIONETTE)
 public class GetLogsTest extends JUnit4TestBase {
 
   private WebDriver localDriver;
@@ -109,10 +113,7 @@ public class GetLogsTest extends JUnit4TestBase {
   private void createWebDriverWithLogging(String logType, Level logLevel) {
     LoggingPreferences loggingPrefs = new LoggingPreferences();
     loggingPrefs.enable(logType, logLevel);
-    DesiredCapabilities caps = new DesiredCapabilities();
-    caps.setCapability(CapabilityType.LOGGING_PREFS, loggingPrefs);
-    //TODO: Set capabilities using required capabilities once these are supported
-    // by the remote server.
+    Capabilities caps = new ImmutableCapabilities(CapabilityType.LOGGING_PREFS, loggingPrefs);
     WebDriverBuilder builder = new WebDriverBuilder().setDesiredCapabilities(caps);
     localDriver = builder.get();
     localDriver.get(pages.simpleTestPage);

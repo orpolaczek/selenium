@@ -109,7 +109,7 @@ class Options(object):
         to the ChromeDriver
 
         :Args:
-         - extension: path to the *.crx file
+         - extension: path to the \*.crx file
         """
         if extension:
             extension_to_add = os.path.abspath(os.path.expanduser(extension))
@@ -166,6 +166,6 @@ class Options(object):
         if self.debugger_address:
             chrome_options["debuggerAddress"] = self.debugger_address
 
-        chrome["chromeOptions"] = chrome_options
+        chrome["goog:chromeOptions"] = chrome_options
 
         return chrome

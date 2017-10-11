@@ -20,8 +20,12 @@ import pytest
 from selenium.common.exceptions import TimeoutException
 
 
-@pytest.mark.xfail_marionette(
-    reason='https://bugzilla.mozilla.org/show_bug.cgi?id=1309231')
+@pytest.fixture(autouse=True)
+def reset_timeouts(driver):
+    yield
+    driver.set_page_load_timeout(300)
+
+
 @pytest.mark.xfail_phantomjs(
     reason='PhantomJS does not implement page load timeouts')
 def testShouldTimeoutOnPageLoadTakingTooLong(driver, pages):
@@ -30,8 +34,6 @@ def testShouldTimeoutOnPageLoadTakingTooLong(driver, pages):
         pages.load("simpleTest.html")
 
 
-@pytest.mark.xfail_marionette(
-    reason='https://bugzilla.mozilla.org/show_bug.cgi?id=1309231')
 @pytest.mark.xfail_phantomjs(
     reason='PhantomJS does not implement page load timeouts')
 def testClickShouldTimeout(driver, pages):

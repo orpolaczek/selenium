@@ -234,7 +234,7 @@ public class ExpectedConditionsTest {
 
   @Test
   public void invertingAConditionThatReturnsFalse() {
-    when(mockCondition.apply(mockDriver)).thenReturn(false);
+    when(mockCondition.apply(mockDriver)).thenReturn(new Boolean(false));
 
     assertTrue(wait.until(not(mockCondition)));
     verifyZeroInteractions(mockSleeper);
@@ -252,7 +252,7 @@ public class ExpectedConditionsTest {
   public void invertingAConditionThatAlwaysReturnsTrueTimesout() throws InterruptedException {
     when(mockClock.laterBy(1000L)).thenReturn(3000L);
     when(mockClock.isNowBefore(3000L)).thenReturn(true, false);
-    when(mockCondition.apply(mockDriver)).thenReturn(true);
+    when(mockCondition.apply(mockDriver)).thenReturn(new Boolean(true));
 
     try {
       wait.until(not(mockCondition));
@@ -638,6 +638,28 @@ public class ExpectedConditionsTest {
 
     assertTrue(wait.until(or(textToBePresentInElement(mockElement, attributeName),
                              attributeToBe(mockElement, attributeName, attributeName))));
+  }
+
+  @Test
+  public void waitForOneOfExpectedConditionsToHavePositiveResultWhenOneThrows() {
+    String attributeName = "test";
+    when(mockElement.getAttribute(attributeName)).thenReturn(attributeName);
+    when(mockElement.getCssValue(attributeName)).thenReturn(attributeName);
+    when(mockElement.getText()).thenThrow(new NoSuchElementException(""));
+
+    assertTrue(wait.until(or(textToBePresentInElement(mockElement, attributeName),
+                             attributeToBe(mockElement, attributeName, attributeName))));
+  }
+
+  @Test(expected = NoSuchElementException.class)
+  public void waitForOneOfExpectedConditionsToHavePositiveResultWhenAllThrow() {
+    String attributeName = "test";
+    when(mockElement.getAttribute(attributeName)).thenThrow(new NoSuchElementException(""));
+    when(mockElement.getCssValue(attributeName)).thenThrow(new NoSuchElementException(""));
+    when(mockElement.getText()).thenThrow(new NoSuchElementException(""));
+
+    wait.until(or(textToBePresentInElement(mockElement, attributeName),
+                  attributeToBe(mockElement, attributeName, attributeName)));
   }
 
 

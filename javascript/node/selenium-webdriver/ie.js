@@ -407,11 +407,9 @@ class Driver extends webdriver.WebDriver {
    *
    * @param {(capabilities.Capabilities|Options)=} opt_config The configuration
    *     options.
-   * @param {promise.ControlFlow=} opt_flow The control flow to use,
-   *     or {@code null} to use the currently active flow.
    * @return {!Driver} A new driver instance.
    */
-  static createSession(opt_config, opt_flow) {
+  static createSession(opt_config) {
     var caps = opt_config instanceof Options ?
         opt_config.toCapabilities() :
         (opt_config || capabilities.Capabilities.ie());
@@ -420,8 +418,8 @@ class Driver extends webdriver.WebDriver {
     var client = service.start().then(url => new http.HttpClient(url));
     var executor = new http.Executor(client);
 
-    return /** @type {!Driver} */(webdriver.WebDriver.createSession(
-        executor, caps, opt_flow, this, () => service.kill()));
+    return /** @type {!Driver} */(super.createSession(
+        executor, caps, () => service.kill()));
   }
 
   /**

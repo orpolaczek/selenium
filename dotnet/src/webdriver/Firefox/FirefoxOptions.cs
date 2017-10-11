@@ -1,4 +1,4 @@
-﻿// <copyright file="FirefoxOptions.cs" company="WebDriver Committers">
+// <copyright file="FirefoxOptions.cs" company="WebDriver Committers">
 // Licensed to the Software Freedom Conservancy (SFC) under one
 // or more contributor license agreements. See the NOTICE file
 // distributed with this work for additional information
@@ -48,6 +48,8 @@ namespace OpenQA.Selenium.Firefox
     /// </example>
     public class FirefoxOptions : DriverOptions
     {
+        private const string BrowserName = "firefox";
+
         private const string IsMarionetteCapability = "marionette";
         private const string FirefoxLegacyProfileCapability = "firefox_profile";
         private const string FirefoxLegacyBinaryCapability = "firefox_binary";
@@ -62,6 +64,7 @@ namespace OpenQA.Selenium.Firefox
         private string browserBinaryLocation;
         private FirefoxDriverLogLevel logLevel = FirefoxDriverLogLevel.Default;
         private FirefoxProfile profile;
+        private Proxy proxy;
         private List<string> firefoxArguments = new List<string>();
         private Dictionary<string, object> profilePreferences = new Dictionary<string, object>();
         private Dictionary<string, object> additionalCapabilities = new Dictionary<string, object>();
@@ -118,6 +121,15 @@ namespace OpenQA.Selenium.Firefox
         {
             get { return this.browserBinaryLocation; }
             set { this.browserBinaryLocation = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the <see cref="Proxy"/> to be used with Firefox.
+        /// </summary>
+        public Proxy Proxy
+        {
+            get { return this.proxy; }
+            set { this.proxy = value; }
         }
 
         /// <summary>
@@ -270,6 +282,7 @@ namespace OpenQA.Selenium.Firefox
             if (capabilityName == IsMarionetteCapability ||
                 capabilityName == FirefoxProfileCapability ||
                 capabilityName == FirefoxBinaryCapability ||
+                capabilityName == CapabilityType.Proxy ||
                 capabilityName == FirefoxLegacyProfileCapability ||
                 capabilityName == FirefoxLegacyBinaryCapability ||
                 capabilityName == FirefoxArgumentsCapability ||
@@ -304,11 +317,21 @@ namespace OpenQA.Selenium.Firefox
         /// <returns>The DesiredCapabilities for Firefox with these options.</returns>
         public override ICapabilities ToCapabilities()
         {
-            DesiredCapabilities capabilities = DesiredCapabilities.Firefox();
-            capabilities.SetCapability(IsMarionetteCapability, this.isMarionette);
-
+            DesiredCapabilities capabilities = new DesiredCapabilities(BrowserName, string.Empty, new Platform(PlatformType.Any));
             if (this.isMarionette)
             {
+                ISpecificationCompliant specCompliantCapabilities = capabilities as ISpecificationCompliant;
+                specCompliantCapabilities.IsSpecificationCompliant = true;
+
+                if (this.proxy != null)
+                {
+                    Dictionary<string, object> proxyCapabiity = this.proxy.ToCapability();
+                    if (proxyCapabiity != null)
+                    {
+                        capabilities.SetCapability(CapabilityType.Proxy, proxyCapabiity);
+                    }
+                }
+
                 Dictionary<string, object> firefoxOptions = this.GenerateFirefoxOptionsDictionary();
                 capabilities.SetCapability(FirefoxOptionsCapability, firefoxOptions);
             }
@@ -316,6 +339,11 @@ namespace OpenQA.Selenium.Firefox
             {
                 if (this.profile != null)
                 {
+                    if (this.proxy != null)
+                    {
+                        this.profile.InternalSetProxyPreferences(this.proxy);
+                    }
+
                     capabilities.SetCapability(FirefoxProfileCapability, this.profile.ToBase64String());
                 }
 
@@ -356,12 +384,15 @@ namespace OpenQA.Selenium.Firefox
             }
             else
             {
-                using (FirefoxBinary executablePathBinary = new FirefoxBinary())
+                if (!this.isMarionette)
                 {
-                    string executablePath = executablePathBinary.BinaryExecutable.ExecutablePath;
-                    if (!string.IsNullOrEmpty(executablePath))
+                    using (FirefoxBinary executablePathBinary = new FirefoxBinary())
                     {
-                        firefoxOptions[FirefoxBinaryCapability] = executablePath;
+                        string executablePath = executablePathBinary.BinaryExecutable.ExecutablePath;
+                        if (!string.IsNullOrEmpty(executablePath))
+                        {
+                            firefoxOptions[FirefoxBinaryCapability] = executablePath;
+                        }
                     }
                 }
             }

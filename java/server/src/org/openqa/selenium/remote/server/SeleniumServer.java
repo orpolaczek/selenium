@@ -23,17 +23,23 @@ import org.openqa.grid.internal.utils.configuration.StandaloneConfiguration;
 import org.openqa.grid.shared.GridNodeServer;
 import org.openqa.grid.web.servlet.DisplayHelpServlet;
 import org.openqa.grid.web.servlet.beta.ConsoleServlet;
+import org.openqa.selenium.Platform;
 import org.openqa.selenium.remote.SessionId;
 import org.openqa.selenium.remote.server.handler.DeleteSession;
+import org.seleniumhq.jetty9.security.ConstraintMapping;
+import org.seleniumhq.jetty9.security.ConstraintSecurityHandler;
 import org.seleniumhq.jetty9.server.Connector;
 import org.seleniumhq.jetty9.server.HttpConfiguration;
 import org.seleniumhq.jetty9.server.HttpConnectionFactory;
 import org.seleniumhq.jetty9.server.Server;
 import org.seleniumhq.jetty9.server.ServerConnector;
 import org.seleniumhq.jetty9.servlet.ServletContextHandler;
+import org.seleniumhq.jetty9.util.security.Constraint;
 import org.seleniumhq.jetty9.util.thread.QueuedThreadPool;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import javax.servlet.Servlet;
 
@@ -41,6 +47,8 @@ import javax.servlet.Servlet;
  * Provides a server that can launch and manage selenium sessions.
  */
 public class SeleniumServer implements GridNodeServer {
+
+  private final static Logger LOG = Logger.getLogger(SeleniumServer.class.getName());
 
   private Server server;
   private DefaultDriverSessions driverSessions;
@@ -79,6 +87,7 @@ public class SeleniumServer implements GridNodeServer {
         getClass().getClassLoader())
         .asSubclass(Servlet.class);
       handler.addServlet(rcServlet, "/selenium-server/driver/");
+      LOG.info("Bound legacy RC support");
     } catch (ClassNotFoundException e) {
       // Do nothing.
     }
@@ -107,27 +116,51 @@ public class SeleniumServer implements GridNodeServer {
       server = new Server();
     }
 
-    ServletContextHandler handler = new ServletContextHandler();
-
-    driverSessions = new DefaultDriverSessions();
-    handler.setAttribute(DriverServlet.SESSIONS_KEY, driverSessions);
-    handler.setContextPath("/");
-    handler.addServlet(DriverServlet.class, "/wd/hub/*");
-    handler.setInitParameter(ConsoleServlet.CONSOLE_PATH_PARAMETER, "/wd/hub");
-
-    handler.setInitParameter(DisplayHelpServlet.HELPER_TYPE_PARAMETER, configuration.role);
+    ServletContextHandler handler = new ServletContextHandler(ServletContextHandler.SECURITY);
 
     if (configuration.browserTimeout != null && configuration.browserTimeout >= 0) {
       handler.setInitParameter(DriverServlet.BROWSER_TIMEOUT_PARAMETER,
                                String.valueOf(configuration.browserTimeout));
     }
+
+    long inactiveSessionTimeoutSeconds = configuration.timeout == null ?
+                                   Long.MAX_VALUE /1000 : configuration.timeout;
     if (configuration.timeout != null && configuration.timeout >= 0) {
       handler.setInitParameter(DriverServlet.SESSION_TIMEOUT_PARAMETER,
                                String.valueOf(configuration.timeout));
     }
 
+    driverSessions = new DefaultDriverSessions(
+        new DefaultDriverFactory(Platform.getCurrent()),
+        TimeUnit.SECONDS.toMillis(inactiveSessionTimeoutSeconds));
+    handler.setAttribute(DriverServlet.SESSIONS_KEY, driverSessions);
+    handler.setContextPath("/");
+    if (configuration.enablePassThrough) {
+      LOG.info("Using the passthrough mode handler");
+      handler.addServlet(WebDriverServlet.class, "/wd/hub/*");
+      handler.addServlet(WebDriverServlet.class, "/webdriver/*");
+    } else {
+      handler.addServlet(DriverServlet.class, "/wd/hub/*");
+      handler.addServlet(DriverServlet.class, "/webdriver/*");
+    }
+    handler.setInitParameter(ConsoleServlet.CONSOLE_PATH_PARAMETER, "/wd/hub");
+
+    handler.setInitParameter(DisplayHelpServlet.HELPER_TYPE_PARAMETER, configuration.role);
+
     addRcSupport(handler);
     addExtraServlets(handler);
+
+    Constraint constraint = new Constraint();
+    constraint.setName("Disable TRACE");
+    constraint.setAuthenticate(true);
+
+    ConstraintMapping mapping = new ConstraintMapping();
+    mapping.setConstraint(constraint);
+    mapping.setMethod("TRACE");
+    mapping.setPathSpec("/");
+
+    ConstraintSecurityHandler securityHandler = (ConstraintSecurityHandler) handler.getSecurityHandler();
+    securityHandler.addConstraintMapping(mapping);
 
     server.setHandler(handler);
 
@@ -147,18 +180,6 @@ public class SeleniumServer implements GridNodeServer {
       server.start();
     } catch (Exception e) {
       throw new RuntimeException(e);
-    }
-  }
-
-  private class ShutDownHook implements Runnable {
-    private final SeleniumServer selenium;
-
-    ShutDownHook(SeleniumServer selenium) {
-      this.selenium = selenium;
-    }
-
-    public void run() {
-      selenium.stop();
     }
   }
 

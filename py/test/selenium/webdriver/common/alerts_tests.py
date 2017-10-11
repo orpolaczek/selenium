@@ -25,9 +25,17 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.common.exceptions import (
     InvalidElementStateException,
     NoAlertPresentException,
-    TimeoutException,
     UnexpectedAlertPresentException,
     WebDriverException)
+
+
+@pytest.fixture(autouse=True)
+def close_alert(driver):
+    yield
+    try:
+        driver.switch_to.alert.dismiss()
+    except Exception:
+        pass
 
 
 @pytest.mark.xfail_chrome(
@@ -195,9 +203,9 @@ def testAlertShouldNotAllowAdditionalCommandsIfDimissed(driver, pages):
 @pytest.mark.xfail_phantomjs(
     reason='https://github.com/detro/ghostdriver/issues/20',
     raises=WebDriverException)
-@pytest.mark.xfail_marionette(reason="https://bugzilla.mozilla.org/show_bug.cgi?id=1314462")
 @pytest.mark.xfail_chrome(
     reason='https://bugs.chromium.org/p/chromedriver/issues/detail?id=1500')
+@pytest.mark.xfail_marionette(reason='Fails on travis')
 def testShouldAllowUsersToAcceptAnAlertInAFrame(driver, pages):
     pages.load("alerts.html")
     driver.switch_to.frame(driver.find_element(By.NAME, "iframeWithAlert"))
@@ -209,14 +217,12 @@ def testShouldAllowUsersToAcceptAnAlertInAFrame(driver, pages):
     assert "Testing Alerts" == driver.title
 
 
-@pytest.mark.xfail_marionette(
-    reason='https://bugzilla.mozilla.org/show_bug.cgi?id=1279211',
-    raises=TimeoutException)
 @pytest.mark.xfail_phantomjs(
     reason='https://github.com/detro/ghostdriver/issues/20',
     raises=WebDriverException)
 @pytest.mark.xfail_chrome(
     reason='https://bugs.chromium.org/p/chromedriver/issues/detail?id=1500')
+@pytest.mark.xfail_marionette(reason='Fails on travis')
 def testShouldAllowUsersToAcceptAnAlertInANestedFrame(driver, pages):
     pages.load("alerts.html")
     driver.switch_to.frame(driver.find_element(By.NAME, "iframeWithIframe"))
@@ -265,8 +271,6 @@ def testPromptShouldHaveNullValueIfDismissed(driver, pages):
     assert "null" == driver.find_element(By.ID, "text").text
 
 
-@pytest.mark.xfail_marionette(
-    reason='https://bugzilla.mozilla.org/show_bug.cgi?id=1279211')
 @pytest.mark.xfail_phantomjs(
     reason='https://github.com/detro/ghostdriver/issues/20',
     raises=WebDriverException)

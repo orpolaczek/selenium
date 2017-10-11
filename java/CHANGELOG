@@ -1,3 +1,134 @@
+v3.6.0
+======
+
+* Remove direct dependency on HTMLUnit and PhantomJS from Maven
+  artifacts.
+* All `*Option` classes now extend `MutableCapbilities`
+  `new RemoteWebDriver(new ChromeOptions());`
+* Deprecating constructors that don't take strongly-typed `*Options`. 
+* Improved exceptions when a `Wait` times out when using a
+  `WrappedWebDriver`.
+* Added `Interactive` interface to EventFiringWebDriver. Fixes #4589
+* Add options to start Firefox and Chrome in headless modes.
+
+
+v3.5.3
+======
+
+Important note:
+
+* The new standalone server and Grid Node feature a "pass through"
+  mode. If you see changes to the Selenium WebDriver "logging" APIs or
+  automatic capture of screenshots on error (or if you want the old
+  behaviour back) you can do so by executing:
+
+  `java -jar selenium-server-standalone-3.5.3.jar -enablePassThrough false`
+
+* Allow user-provided DriverProviders to override default providers in
+  passthrough mode.
+* Fixes issue with W3C Actions not being properly filled when multiple
+  input sources are used.
+* Platform that represent platform families ("WINDOWS", "UNIX", "MAC",
+  and "IOS") return `null` from `Platform.getFamily`.
+* Handle null return values from chromedriver. Fixes #4555
+* Synchronized "platform" and "platformName" capability values. Fixes #4565
+* Add iOS `Platform`.
+* Fix wrapping of maps with null values. Fixes #3380
+* Grid: Add new w3c compatible `status` endpoints for Hub and nodes.
+* Grid: Properly parse responses from upstream nodes that are not
+  200. Fixes issue where `NoSuchElementException` was mistaken for a
+  `NoSuchSessionException`.
+* Grid: Handle re-encoding issue when transferring text from the
+  endpoint node to the local end.
+
+
+v3.5.2
+======
+
+Important note:
+
+* The new standalone server and Grid Node feature a "pass through"
+  mode. If you see changes to the Selenium WebDriver "logging" APIs or
+  automatic capture of screenshots on error (or if you want the old
+  behaviour back) you can do so by executing:
+
+  `java -jar selenium-server-standalone-3.5.2.jar -enablePassThrough false`
+
+* Avoid encoding numbers as floats rather then longs in JSON payloads.
+* New "pass through" mode supports file uploads again.
+* Added support for querying running sessions via the
+  "/wd/hub/sessions" endpoint
+* Fix a NullPointerException when deserializing exceptions from a
+  remote webdriver.
+* Handle the `macOS` as a valid platform name, as this is used by
+  safaridriver.
+
+
+v3.5.1
+======
+
+Important note:
+
+* The new standalone server and Grid Node feature a "pass through"
+  mode. If you see changes to the Selenium WebDriver "logging" APIs or
+  automatic capture of screenshots on error (or if you want the old
+  behaviour back) you can do so by executing:
+
+  `java -jar selenium-server-standalone-3.5.1.jar -enablePassThrough false`
+
+* Bump guava to version 23. This is work around an issue where maven
+  will select guava's android variant if using a ranged selector.
+
+
+v3.5.0
+======
+
+Note: Never pushed to maven due to problems resolving guava version.
+
+Important note:
+
+* The new standalone server and Grid Node feature a "pass through"
+  mode. If you see changes to the Selenium WebDriver "logging" APIs or
+  automatic capture of screenshots on error (or if you want the old
+  behaviour back) you can do so by executing:
+
+  `java -jar selenium-server-standalone-3.5.0.jar -enablePassThrough false`
+
+* Bump guava to version 22.
+* Add support for a new "pass through" mode. This allows a connection
+  from your test's RemoteWebDriver, through the Grid Hub, to a Grid
+  Node, and down to a DriverService and thence the browser to use the
+  same WebDriver protocol (the Json Wire Protocol or the W3C one) end
+  to end without translation. This mode can be disabled by starting
+  the standalone server or Grid node with `-enablePassThrough false`
+* Pin Guava to version 21+. This fixes problems with lambdas being
+  used as ExpectedConditions.
+* Start making *Option classes instances of Capabilities. This allows
+  the user to do:
+  `WebDriver driver = new RemoteWebDriver(new InternetExplorerOptions());`
+* Better handling of `getText` when confronted with a Shadow DOM
+* Better logging when using an Augmenter fails.
+* Make it easier to add new @FindBy annotations.
+* Attempt to kill processes before draining input, error, and output
+  streams. This should reduce apparent hanging when closing Firefox in
+  particular.
+* Grid will make use of W3C capabilities in prefernce to the JSON Wire
+  Protocol ones.
+* Fixing boolean command line arguments (#3877)
+
+v3.4.0
+======
+
+* Geckodriver 0.16 is strongly recommended
+* LiFT package is now available as a separate maven dependency.
+* Deprecated numerous constructors on RemoteWebDriver that are no
+  longer useful.
+* `requiredCapabilities` are now being removed. Use
+  `desiredCapabilities` instead.
+* Legacy Firefox support broken out into a `XpiDriverService`, but
+  still relies on the same `webdriver.xpi` as before.
+* Better support for W3C endpoints
+
 v3.3.1
 ======
 

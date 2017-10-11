@@ -22,7 +22,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Function;
-import com.google.common.base.Throwables;
 
 import org.junit.After;
 import org.junit.Before;
@@ -114,14 +113,6 @@ public class DefaultProxyIsUnregisteredIfDownForTooLongTest {
     };
   }
 
-  private Callable<Boolean> isDown(final DefaultRemoteProxy proxy) {
-    return new Callable<Boolean>() {
-      public Boolean call() throws Exception {
-        return proxy.isDown();
-      }
-    };
-  }
-
   private String getProxyId() throws Exception {
     RemoteProxy p = null;
     Iterator<RemoteProxy> it = registry.getAllProxies().iterator();
@@ -151,7 +142,7 @@ public class DefaultProxyIsUnregisteredIfDownForTooLongTest {
         try {
           return thing.call();
         } catch (Exception e) {
-          throw Throwables.propagate(e);
+          throw new RuntimeException(e);
         }
       }
     });

@@ -40,12 +40,12 @@ import static org.openqa.selenium.testing.Driver.MARIONETTE;
 import com.google.common.base.Throwables;
 
 import org.junit.After;
-import org.junit.Assume;
 import org.junit.Test;
 import org.mockito.Mockito;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.Dimension;
+import org.openqa.selenium.ImmutableCapabilities;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.ParallelTestRunner;
 import org.openqa.selenium.ParallelTestRunner.Worker;
@@ -55,7 +55,6 @@ import org.openqa.selenium.firefox.internal.ProfilesIni;
 import org.openqa.selenium.remote.CapabilityType;
 import org.openqa.selenium.remote.Command;
 import org.openqa.selenium.remote.CommandExecutor;
-import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.DriverCommand;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.remote.SessionId;
@@ -67,9 +66,7 @@ import org.openqa.selenium.testing.JUnit4TestBase;
 import org.openqa.selenium.testing.NeedsFreshDriver;
 import org.openqa.selenium.testing.NeedsLocalEnvironment;
 import org.openqa.selenium.testing.NoDriverAfterTest;
-import org.openqa.selenium.testing.NotYetImplemented;
 import org.openqa.selenium.testing.drivers.SauceDriver;
-import org.openqa.selenium.testing.drivers.SynthesizedFirefoxDriver;
 import org.openqa.selenium.testing.drivers.WebDriverBuilder;
 
 import java.io.File;
@@ -115,16 +112,15 @@ public class FirefoxDriverTest extends JUnit4TestBase {
     profile.setPreference("browser.startup.page", 1);
     profile.setPreference("browser.startup.homepage", pages.xhtmlTestPage);
 
-    localDriver = new FirefoxDriver(profile);
+    localDriver = new FirefoxDriver(new FirefoxOptions().setProfile(profile));
     wait.until($ -> "XHTML Test Page".equals(localDriver.getTitle()));
   }
 
   @Test
   public void canPassCapabilities() {
-    DesiredCapabilities capabilities = new DesiredCapabilities();
-    capabilities.setCapability(CapabilityType.PAGE_LOAD_STRATEGY, "none");
+    Capabilities caps = new ImmutableCapabilities(CapabilityType.PAGE_LOAD_STRATEGY, "none");
 
-    localDriver = new FirefoxDriver(capabilities);
+    localDriver = new FirefoxDriver(caps);
 
     assertEquals(
         "none",
@@ -159,8 +155,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
     profile.setPreference("browser.startup.page", 1);
     profile.setPreference("browser.startup.homepage", pages.xhtmlTestPage);
 
-    DesiredCapabilities caps = new DesiredCapabilities();
-    caps.setCapability(FirefoxDriver.PROFILE, profile);
+    Capabilities caps = new ImmutableCapabilities(FirefoxDriver.PROFILE, profile);
 
     localDriver = new FirefoxDriver(caps);
     wait.until($ -> "XHTML Test Page".equals(localDriver.getTitle()));
@@ -170,8 +165,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
   @Ignore(value = MARIONETTE, reason = "Assumed to be covered by tests for GeckoDriverService")
   public void canSetBinaryInCapabilities() throws IOException {
     FirefoxBinary binary = spy(new FirefoxBinary());
-    DesiredCapabilities caps = new DesiredCapabilities();
-    caps.setCapability(FirefoxDriver.BINARY, binary);
+    Capabilities caps = new ImmutableCapabilities(FirefoxDriver.BINARY, binary);
 
     localDriver = new FirefoxDriver(caps);
 
@@ -181,8 +175,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
   @Test
   public void canSetBinaryPathInCapabilities() throws IOException {
     String binPath = new FirefoxBinary().getPath();
-    DesiredCapabilities caps = new DesiredCapabilities();
-    caps.setCapability(FirefoxDriver.BINARY, binPath);
+    Capabilities caps = new ImmutableCapabilities(FirefoxDriver.BINARY, binPath);
 
     localDriver = new FirefoxDriver(caps);
   }
@@ -199,21 +192,6 @@ public class FirefoxDriverTest extends JUnit4TestBase {
 
     localDriver = new FirefoxDriver(options);
     wait.until($ -> "Testing Javascript".equals(localDriver.getTitle()));
-  }
-
-  private static class ConnectionCapturingDriver extends FirefoxDriver {
-    public ExtensionConnection keptConnection;
-
-    public ConnectionCapturingDriver() {
-      super();
-    }
-
-    @Override
-    protected ExtensionConnection connectTo(FirefoxBinary binary, FirefoxProfile profile, String host) {
-      this.keptConnection = super.connectTo(binary, profile, host);
-
-      return keptConnection;
-    }
   }
 
   @Test
@@ -283,7 +261,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
     FirefoxProfile profile = new FirefoxProfile();
 
     try {
-      WebDriver secondDriver = new FirefoxDriver(profile);
+      WebDriver secondDriver = new FirefoxDriver(new FirefoxOptions().setProfile(profile));
       secondDriver.quit();
     } catch (Exception e) {
       e.printStackTrace();
@@ -297,7 +275,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
     profile.setPreference("browser.startup.homepage", pages.formPage);
 
     try {
-      WebDriver secondDriver = new FirefoxDriver(profile);
+      WebDriver secondDriver = new FirefoxDriver(new FirefoxOptions().setProfile(profile));
       new WebDriverWait(secondDriver, 30).until(titleIs("We Leave From Here"));
       String title = secondDriver.getTitle();
       secondDriver.quit();
@@ -318,7 +296,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
     profile.setPreference("webdriver.log.file", logFile.getAbsolutePath());
 
     try {
-      WebDriver secondDriver = new FirefoxDriver(profile);
+      WebDriver secondDriver = new FirefoxDriver(new FirefoxOptions().setProfile(profile));
       assertTrue("log file should exist", logFile.exists());
       secondDriver.quit();
     } catch (Exception e) {
@@ -334,7 +312,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
     profile.setPreference("webdriver.log.file", "/dev/stdout");
 
     try {
-      WebDriver secondDriver = new FirefoxDriver(profile);
+      WebDriver secondDriver = new FirefoxDriver(new FirefoxOptions().setProfile(profile));
       secondDriver.quit();
     } catch (Exception e) {
       e.printStackTrace();
@@ -347,7 +325,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
     FirefoxProfile profile = new ProfilesIni().getProfile("default");
     assumeNotNull(profile);
 
-    WebDriver firefox = new FirefoxDriver(profile);
+    WebDriver firefox = new FirefoxDriver(new FirefoxOptions().setProfile(profile));
     firefox.quit();
   }
 
@@ -388,7 +366,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
 
     FirefoxDriver secondDriver = null;
     try {
-      secondDriver = new FirefoxDriver(profile);
+      secondDriver = new FirefoxDriver(new FirefoxOptions().setProfile(profile));
       Capabilities caps = secondDriver.getCapabilities();
       assertFalse(caps.is(ACCEPT_SSL_CERTS));
     } catch (Exception e) {
@@ -407,7 +385,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
     profile.setPreference("browser.startup.page", "1");
     profile.setPreference("browser.startup.homepage", pages.javascriptPage);
 
-    final WebDriver driver2 = new FirefoxDriver(profile);
+    final WebDriver driver2 = new FirefoxDriver(new FirefoxOptions().setProfile(profile));
 
     try {
       new WebDriverWait(driver2, 30).until(urlToBe(pages.javascriptPage));
@@ -421,7 +399,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
   }
 
   @Test
-  @NotYetImplemented(value = MARIONETTE, reason = "https://github.com/mozilla/geckodriver/issues/519")
+  @Ignore(value = MARIONETTE, issue = "https://github.com/mozilla/geckodriver/issues/273")
   public void canAccessUrlProtectedByBasicAuth() {
     driver.get(appServer.whereIsWithCredentials("basicAuth", "test", "test"));
     assertEquals("authorized", driver.findElement(By.tagName("h1")).getText());
@@ -467,7 +445,7 @@ public class FirefoxDriverTest extends JUnit4TestBase {
       thread2.join();
 
       runnable1.assertOnRightPage();
-      runnable1.assertOnRightPage();
+      runnable2.assertOnRightPage();
     } finally {
       runnable1.quit();
       runnable2.quit();
@@ -542,8 +520,8 @@ public class FirefoxDriverTest extends JUnit4TestBase {
     WebDriver two = null;
 
     try {
-      one = new FirefoxDriver(profile);
-      two = new FirefoxDriver(profile);
+      one = new FirefoxDriver(new FirefoxOptions().setProfile(profile));
+      two = new FirefoxDriver(new FirefoxOptions().setProfile(profile));
 
       // If we get this far, then both firefoxes have started. If this test
       // two browsers will start, but the second won't have a valid port and an
@@ -557,8 +535,8 @@ public class FirefoxDriverTest extends JUnit4TestBase {
   // See http://code.google.com/p/selenium/issues/detail?id=1774
   @Test
   public void canStartFirefoxDriverWithSubclassOfFirefoxProfile() {
-    new FirefoxDriver(new CustomFirefoxProfile()).quit();
-    new FirefoxDriver(new FirefoxProfile() {}).quit();
+    new FirefoxDriver(new FirefoxOptions().setProfile(new CustomFirefoxProfile())).quit();
+    new FirefoxDriver(new FirefoxOptions().setProfile(new FirefoxProfile() {})).quit();
   }
 
   /**
@@ -572,11 +550,6 @@ public class FirefoxDriverTest extends JUnit4TestBase {
         ((JavascriptExecutor) driver).executeScript("return typeof Sizzle == 'undefined';"));
   }
 
-  @Test
-  @NeedsLocalEnvironment
-  public void constructorArgsAreNullable() {
-    new SynthesizedFirefoxDriver((Capabilities) null).quit();
-  }
   /**
    * Tests that we do not pollute the global namespace with Sizzle in Firefox 3.
    */
@@ -591,9 +564,8 @@ public class FirefoxDriverTest extends JUnit4TestBase {
 
   @Test
   public void testFirefoxCanNativelyClickOverlappingElements() {
-    DesiredCapabilities capabilities = new DesiredCapabilities();
-    capabilities.setCapability(CapabilityType.OVERLAPPING_CHECK_DISABLED, true);
-    WebDriver secondDriver = new FirefoxDriver(capabilities);
+    Capabilities caps = new ImmutableCapabilities(CapabilityType.OVERLAPPING_CHECK_DISABLED, true);
+    WebDriver secondDriver = new FirefoxDriver(caps);
     try {
       secondDriver.get(appServer.whereIs("click_tests/overlapping_elements.html"));
       secondDriver.findElement(By.id("under")).click();

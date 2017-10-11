@@ -17,14 +17,15 @@
 
 import base64
 import hashlib
-import pkgutil
 import os
+import pkgutil
+import warnings
 import zipfile
 
-from .command import Command
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.utils import keys_to_typing
+from .command import Command
 
 # Python 3 imports
 try:
@@ -37,8 +38,10 @@ try:
 except ImportError:  # 3+
     from io import BytesIO as IOStream
 
-getAttribute_js = pkgutil.get_data(__package__, 'getAttribute.js').decode('utf8')
-isDisplayed_js = pkgutil.get_data(__package__, 'isDisplayed.js').decode('utf8')
+# not relying on __package__ here as it can be `None` in some situations (see #4558)
+_pkg = '.'.join(__name__.split('.')[:-1])
+getAttribute_js = pkgutil.get_data(_pkg, 'getAttribute.js').decode('utf8')
+isDisplayed_js = pkgutil.get_data(_pkg, 'isDisplayed.js').decode('utf8')
 
 
 class WebElement(object):
@@ -344,7 +347,9 @@ class WebElement(object):
             if local_file is not None:
                 value = self._upload(local_file)
 
-        self._execute(Command.SEND_KEYS_TO_ELEMENT, {'value': keys_to_typing(value)})
+        self._execute(Command.SEND_KEYS_TO_ELEMENT,
+                      {'text': "".join(keys_to_typing(value)),
+                       'value': keys_to_typing(value)})
 
     # RenderedWebElement Items
     def is_displayed(self):
@@ -368,7 +373,7 @@ class WebElement(object):
 
         """
         if self._w3c:
-            old_loc = self._execute(Command.EXECUTE_SCRIPT, {
+            old_loc = self._execute(Command.W3C_EXECUTE_SCRIPT, {
                 'script': "arguments[0].scrollIntoView(true); return arguments[0].getBoundingClientRect()",
                 'args': [self]})['value']
             return {"x": round(old_loc['x']),
@@ -431,15 +436,20 @@ class WebElement(object):
 
     def screenshot(self, filename):
         """
-        Gets the screenshot of the current element. Returns False if there is
-           any IOError, else returns True. Use full paths in your filename.
+        Saves a screenshot of the current element to a PNG image file. Returns
+           False if there is any IOError, else returns True. Use full paths in
+           your filename.
 
         :Args:
-         - filename: The full path you wish to save your screenshot to.
+         - filename: The full path you wish to save your screenshot to. This
+           should end with a `.png` extension.
 
         :Usage:
             element.screenshot('/Screenshots/foo.png')
         """
+        if not filename.lower().endswith('.png'):
+            warnings.warn("name used for saved screenshot does not match file "
+                          "type. It should end with a `.png` extension", UserWarning)
         png = self.screenshot_as_png
         try:
             with open(filename, 'wb') as f:

@@ -185,7 +185,8 @@ public class GridNodeConfigurationTest {
                  + "\"debug\":false,"
                  + "\"port\":5555,"
                  + "\"role\":\"node\","
-                 + "\"timeout\":1800}", gnc.toJson().toString());
+                 + "\"timeout\":1800,"
+                 + "\"enablePassThrough\":true}", gnc.toJson().toString());
   }
 
   @Test
@@ -262,7 +263,7 @@ public class GridNodeConfigurationTest {
     GridNodeConfiguration other = new GridNodeConfiguration();
     other.id = "myid";
     DesiredCapabilities dc =
-      new DesiredCapabilities(new ImmutableMap.Builder().put("chrome", "foo").build());
+      new DesiredCapabilities(new ImmutableMap.Builder<String, String>().put("chrome", "foo").build());
     other.capabilities = Arrays.asList(dc);
     other.downPollingLimit = 50;
     other.hub = "http://dummyhost";
